@@ -3,11 +3,12 @@
 
 const TZ = 'America/Edmonton';
 const STORAGE_KEY = 'aol-staff-token';
+const NAME_KEY = 'aol-staff-name';
 
 const $ = id => document.getElementById(id);
 const els = {
-  session: $('session'), role: $('role'), refresh: $('refresh'), signOut: $('sign-out'),
-  signin: $('signin'), signinForm: $('signin-form'), token: $('token'), signinError: $('signin-error'), signinBtn: $('signin-btn'),
+  session: $('session'), sessionName: $('session-name'), role: $('role'), refresh: $('refresh'), signOut: $('sign-out'),
+  signin: $('signin'), signinForm: $('signin-form'), name: $('name'), token: $('token'), signinError: $('signin-error'), signinBtn: $('signin-btn'),
   banner: $('banner'), loading: $('loading'), app: $('app'),
   tiles: $('tiles'), windowSeg: $('window-seg'), cohortSeg: $('cohort-seg'), windowDates: $('window-dates'),
   actions: $('actions'), charts: $('charts'),
@@ -36,7 +37,8 @@ function el(tag, props = {}, ...children) {
 
 const storage = {
   get() { try { return sessionStorage.getItem(STORAGE_KEY); } catch { return null; } },
-  set(v) { try { sessionStorage.setItem(STORAGE_KEY, v); } catch { /* in-memory only */ } },
+  getName() { try { return sessionStorage.getItem(NAME_KEY); } catch { return null; } },
+  set(token, name) { try { sessionStorage.setItem(STORAGE_KEY, token); sessionStorage.setItem(NAME_KEY, name); } catch { /* in-memory only */ } },
   clear() { try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ } },
 };
 
@@ -91,7 +93,7 @@ const label = (field, id) => (id == null ? '' : state.labels[`${field}:${id}`] ?
 
 /* ---------- sign in / out ---------- */
 
-async function signIn(token) {
+async function signIn(token, name) {
   state.token = token;
   els.signinBtn.disabled = true;
   els.signinError.hidden = true;
@@ -112,11 +114,13 @@ async function signIn(token) {
       state.records = [];
       state.nextBefore = null;
     }
-    storage.set(token);
+    storage.set(token, name);
     els.signin.hidden = true;
     els.session.hidden = false;
     els.app.hidden = false;
+    els.sessionName.textContent = name;
     els.role.textContent = state.role === 'manager' ? 'Manager' : 'Reporter';
+    els.token.value = '';
     render();
   } catch (err) {
     state.token = null;
@@ -124,6 +128,7 @@ async function signIn(token) {
     els.signin.hidden = false;
     els.app.hidden = true;
     els.session.hidden = true;
+    els.sessionName.textContent = '';
     els.signinError.textContent = err.status === 401
       ? 'That token wasn’t accepted. Check it matches AOL_MANAGER_TOKEN or AOL_REPORT_TOKEN in the backend .env.'
       : (err.body?.message ?? 'Could not reach the dashboard server.');
@@ -141,6 +146,7 @@ function signOut() {
   els.rows.replaceChildren();
   els.app.hidden = true;
   els.session.hidden = true;
+  els.sessionName.textContent = '';
   els.signin.hidden = false;
   els.token.value = '';
   showBanner('');
@@ -360,10 +366,75 @@ function exportCsv() {
 
 /* ---------- wiring ---------- */
 
+if (location.pathname.startsWith('/staff/')) {
+  const nav = $('dashboard-nav');
+  const followupsPanel = $('followups-panel');
+  const carePanel = $('care-panel');
+  const careSession = $('care-session');
+  const careSections = ['people', 'events', 'today'];
+  let careUser = null;
+  document.body.classList.add('integrated-dashboard');
+  nav.hidden = false;
+
+  function selectSection(section) {
+    document.body.dataset.section = section;
+    followupsPanel.hidden = section !== 'followups';
+    carePanel.hidden = section === 'followups';
+    careSession.hidden = section === 'followups' || !careUser;
+    nav.querySelectorAll('a').forEach(link => {
+      if (link.dataset.section === section) {
+        link.setAttribute('aria-current', 'page');
+        $('dashboard-title').textContent = link.textContent;
+      } else link.removeAttribute('aria-current');
+    });
+  }
+
+  function navigate() {
+    const name = location.hash.slice(1);
+    const section = careSections.includes(name) ? name : 'followups';
+    selectSection(section);
+    if (section === 'followups') return;
+    if (!carePanel.getAttribute('src')) carePanel.src = `/care/?embedded=staff#${section}`;
+    else if (carePanel.contentWindow.location.hash !== `#${section}`) carePanel.contentWindow.location.hash = section;
+  }
+
+  carePanel.addEventListener('load', () => {
+    carePanel.contentWindow.addEventListener('hashchange', () => {
+      const name = carePanel.contentWindow.location.hash.slice(1).split('/')[0];
+      const section = name === 'person' ? 'people' : name === 'event' ? 'events' : name;
+      if (!careSections.includes(section) || carePanel.hidden) return;
+      selectSection(section);
+      history.replaceState(null, '', `#${section}`);
+    });
+    navigate();
+  });
+  window.addEventListener('message', event => {
+    if (event.origin !== location.origin || event.source !== carePanel.contentWindow || event.data?.type !== 'care-session') return;
+    const user = event.data.user;
+    if (user !== null && (typeof user?.name !== 'string' || !['manager', 'volunteer'].includes(user.role))) return;
+    careUser = user;
+    $('care-name').textContent = user?.name ?? '';
+    $('care-role').textContent = user?.role === 'manager' ? 'Manager' : user ? 'Volunteer' : '';
+    careSession.hidden = carePanel.hidden || !user;
+  });
+  $('care-sign-out').addEventListener('click', () => {
+    carePanel.contentWindow.postMessage({ type: 'care-sign-out' }, location.origin);
+  });
+  window.addEventListener('hashchange', navigate);
+  navigate();
+}
+
 els.signinForm.addEventListener('submit', e => {
   e.preventDefault();
+  const name = els.name.value.trim();
   const token = els.token.value.trim();
-  if (token) signIn(token);
+  if (!name) {
+    els.signinError.textContent = 'Enter your name.';
+    els.signinError.hidden = false;
+    els.name.focus();
+    return;
+  }
+  if (token) signIn(token, name);
 });
 els.signOut.addEventListener('click', signOut);
 els.refresh.addEventListener('click', refresh);
@@ -385,4 +456,14 @@ els.more.addEventListener('click', loadMore);
 els.exportBtn.addEventListener('click', exportCsv);
 
 const saved = storage.get();
-if (saved) signIn(saved); else els.token.focus();
+const savedName = storage.getName()?.trim();
+if (savedName) els.name.value = savedName;
+if (saved && savedName) signIn(saved, savedName);
+else {
+  if (saved) {
+    els.token.value = saved;
+    els.signinError.textContent = 'Enter your name to continue with your saved survey session.';
+    els.signinError.hidden = false;
+  }
+  els.name.focus();
+}

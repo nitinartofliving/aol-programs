@@ -4,10 +4,11 @@ import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { findAnswer, similarity } from '../match.mjs';
 import { createCareApp, qrSvg } from '../server.mjs';
-import { addDays, normalizePhone } from '../store.mjs';
+import { addDays, normalizePhone, openCareStore } from '../store.mjs';
 import { demoKnowledge } from '../catalog.mjs';
 
 const manager = 'm'.repeat(40);
@@ -185,7 +186,7 @@ test('events: public registration, check-in, QR and course completion', async ()
     assert.equal(ev2.slug, 'happiness-program-nov-20-2');
 
     const pub = await s.call('GET', '/e/api/events/' + ev.slug, undefined, null);
-    assert.deepEqual(Object.keys(pub.body).sort(), ['description', 'place', 'program', 'slug', 'startsAt', 'status', 'teacher', 'title']);
+    assert.deepEqual(Object.keys(pub.body).sort(), ['description', 'place', 'program', 'registrationUrl', 'slug', 'startsAt', 'status', 'teacher', 'title']);
     const reg = { fullName: 'Dev Rao', phone: '(403) 555-0147', goal: 'Meet people', consent: true };
     let r = await s.call('POST', `/e/api/events/${ev.slug}/register`, reg, null);
     assert.deepEqual([r.status, r.body.alreadyRegistered], [200, false]);
@@ -223,6 +224,77 @@ test('events: public registration, check-in, QR and course completion', async ()
     assert.equal((await s.call('GET', '/e/no-such-event/qr.svg', undefined, null)).status, 404);
     assert.equal((await s.call('GET', `/e/${ev.slug}`, undefined, null)).status, 200);
   } finally { s.close(); }
+});
+
+test('external registration handoff saves interest without claiming official registration', async () => {
+  const s = await start();
+  try {
+    const body = { program: 'Part 1', title: 'Course', startsAt: '2026-11-20T18:00' };
+    for (const link of ['http://example.org/course', 'https://localhost/course', 'https://user:pass@example.org/', 'javascript:alert(1)']) {
+      assert.equal((await s.call('POST', '/care/api/events', { ...body, registrationUrl: link })).status, 400);
+    }
+    const link = 'https://example.org/course?event=123';
+    const ev = (await s.call('POST', '/care/api/events', { ...body, registrationUrl: link })).body;
+    assert.equal(ev.registrationUrl, link);
+    assert.equal(ev.publicUrl, `${s.base}/e/${ev.slug}`);
+    const payload = { fullName: 'Demo Attendee', phone: '4035550190', consent: true, expectedRegistrationUrl: link };
+    let response = await s.call('POST', `/e/api/events/${ev.slug}/register`, payload, null);
+    assert.equal(response.status, 200);
+    assert.equal(response.body.event.registrationUrl, link);
+    assert.equal((await s.call('POST', `/e/api/events/${ev.slug}/register`, payload, null)).body.alreadyRegistered, true);
+    const list = (await s.call('GET', '/care/api/events')).body;
+    assert.deepEqual([list[0].registered, list[0].handoffs], [0, 1]);
+    const saved = (await s.call('GET', '/care/api/events/' + ev.id)).body;
+    assert.equal(saved.registrations[0].sourceType, 'handoff');
+    const queue = (await s.call('GET', '/care/api/queue')).body.items;
+    assert.match(queue[0].why, /interested in Course/);
+    assert.equal(queue[0].awaitingOfficialRegistration, true);
+    await s.call('PATCH', '/care/api/events/' + ev.id, { registrationUrl: '' });
+    response = await s.call('POST', `/e/api/events/${ev.slug}/register`, { ...payload, phone: '4035550191' }, null);
+    assert.equal(response.status, 409);
+    assert.match(response.body.error, /changed/);
+    assert.equal((await s.call('GET', '/care/api/events')).body[0].handoffs, 1);
+    assert.equal((await s.call('GET', '/care/api/people')).body.length, 1);
+    response = await s.call('POST', `/e/api/events/${ev.slug}/register`, { ...payload, expectedRegistrationUrl: '', phone: '4035550192', consent: false }, null);
+    assert.equal(response.status, 200);
+    assert.equal((await s.call('GET', '/care/api/queue')).body.items.length, 1);
+    assert.deepEqual([(await s.call('GET', '/care/api/events')).body[0].registered, (await s.call('GET', '/care/api/events')).body[0].handoffs], [1, 1]);
+  } finally { s.close(); }
+});
+
+test('flyer event creation is idempotent and rejects a conflicting retry', async () => {
+  const s = await start();
+  try {
+    const body = { title: 'Flyer course', program: 'Other', startsAt: '2026-11-20T18:00', registrationUrl: 'https://example.org/course', flyerKey: '01985b8a-5e1b-4be4-8e90-0c2d4d69f511' };
+    const first = await s.call('POST', '/care/api/events', body);
+    const retry = await s.call('POST', '/care/api/events', body);
+    assert.equal(first.status, 201);
+    assert.equal(retry.status, 200);
+    assert.equal(retry.body.id, first.body.id);
+    assert.equal((await s.call('POST', '/care/api/events', { ...body, title: 'Changed' })).status, 409);
+    assert.equal((await s.call('GET', '/care/api/events')).body.length, 1);
+    assert.equal((await s.call('POST', '/care/api/events', { ...body, flyerKey: 'invalid' })).status, 400);
+    assert.equal((await s.call('POST', '/care/api/events', body, null)).status, 401);
+  } finally { s.close(); }
+});
+
+test('existing event registrations survive the handoff schema migration', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'care-migration-'));
+  const file = join(dir, 'care.sqlite');
+  try {
+    let store = openCareStore(file);
+    const event = store.createEvent({ title: 'Legacy', program: 'Other', startsAt: '2026-11-20T18:00' });
+    store.register(store.getEventBySlug(event.slug), { fullName: 'Legacy Person', phone: '4035550199', phoneDigits: '14035550199', consent: true });
+    store.close();
+    const old = new DatabaseSync(file);
+    old.exec('DROP INDEX events_flyer_key; ALTER TABLE events DROP COLUMN flyer_key; ALTER TABLE events DROP COLUMN registration_url; ALTER TABLE registrations DROP COLUMN source_type;');
+    old.close();
+    store = openCareStore(file);
+    assert.equal(store.getEvent(event.id).registrationUrl, '');
+    assert.equal(store.getEvent(event.id).registrations[0].sourceType, 'registration');
+    assert.equal(store.listEvents()[0].registered, 1);
+    store.close();
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('Intro Talk check-in records the step automatically', async () => {

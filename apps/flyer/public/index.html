@@ -117,11 +117,12 @@
 
     <section id="sG" class="card" data-section="G">
       <h2><b>G</b>QR code?</h2>
-      <label class="switch"><input id="qrOn" type="checkbox"><i></i><span>Add a QR code to the course link</span></label>
-      <label class="fld"><span>Course link</span><input id="url" type="url" placeholder="https://"></label>
-      <label class="fld inline"><span>Where the link goes</span>
+      <label class="switch"><input id="qrOn" type="checkbox"><i></i><span id="qrLabel">Add a QR code to our event form</span></label>
+      <label class="fld"><span id="urlLabel">Official course registration link</span><input id="url" type="url" placeholder="https://"></label>
+      <label id="destinationTypeField" class="fld inline"><span>Where the link goes</span>
         <select id="dtype"><option value="">Not sure</option><option value="registration">A registration page</option><option value="information">An information page</option><option value="enquiry">An enquiry route</option></select></label>
-      <small>The link is used exactly as entered. It is never shortened and no tracking is added.</small>
+      <small id="linkHint">An event is created automatically. Checked: the QR opens our form before the official page. Unchecked: the QR opens the official page directly.</small>
+      <p id="eventLinkStatus" role="status"></p>
     </section>
 
     <section class="card quiet">
@@ -131,10 +132,8 @@
 
     <div class="actions">
       <button class="btn primary big" id="makeBtn" type="button">Make my flyer</button>
-      <button class="btn big" id="addEventBtn" type="button" hidden>Add to events</button>
       <span id="busy" class="busy hide" role="status"></span>
     </div>
-    <small id="addEventHint" hidden>To add an event, the current form's first date and details will be copied for review.</small>
     <p id="addEventError" class="event-error" role="alert"></p>
   </main>
 

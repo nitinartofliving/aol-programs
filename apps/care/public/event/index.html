@@ -27,11 +27,12 @@
     <section id="formPanel" class="panel" hidden>
       <form id="form" class="stack" novalidate>
         <h2 id="formTitle">Save your spot</h2>
+        <p id="handoffHint" class="muted small" hidden>We will save your details here, then take you to the official registration page. You must complete registration there.</p>
         <label>Your name<input name="fullName" autocomplete="name" maxlength="80" required></label>
         <label>Phone number<input name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="30" required></label>
         <label id="emailField">Email <span class="optional">(optional)</span><input name="email" type="email" autocomplete="email" maxlength="120"></label>
         <label id="goalField">What brings you here? <span class="optional">(optional)</span><input name="goal" maxlength="200"></label>
-        <label class="check"><input type="checkbox" name="consent"><span>Yes, a volunteer may contact me by call, WhatsApp or text about this and future programs. You can ask us to stop at any time.</span></label>
+        <label class="check"><input type="checkbox" name="consent"><span>Optional: a volunteer may contact me by call, WhatsApp or text about this and future programs. You can ask us to stop at any time.</span></label>
         <div class="hp" aria-hidden="true"><label>Leave this empty<input name="website" tabindex="-1" autocomplete="off"></label></div>
         <p id="error" class="error" role="alert"></p>
         <button id="submit" class="btn primary" type="submit">Register</button>
@@ -42,6 +43,7 @@
     <section id="done" class="panel stack" hidden tabindex="-1">
       <h2 id="doneTitle"></h2>
       <p id="doneText"></p>
+      <a id="continueLink" class="btn primary" hidden>Continue to official registration</a>
     </section>
 
     <section id="closed" class="panel stack" hidden>

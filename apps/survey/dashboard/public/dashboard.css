@@ -22,9 +22,24 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
+body.integrated-dashboard { height: 100vh; display: flex; flex-direction: column; }
 [hidden] { display: none !important; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.dashboard-nav {
+  display: flex; gap: 4px; overflow-x: auto; padding: 0 1.25rem;
+  background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.dashboard-nav a {
+  display: flex; align-items: center; min-height: 48px; padding: 0 12px;
+  color: var(--muted); font-weight: 600; text-decoration: none; white-space: nowrap;
+  border-bottom: 3px solid transparent;
+}
+.dashboard-nav a[aria-current="page"] { color: var(--forest); border-bottom-color: var(--forest); }
+body[data-section]:not([data-section="followups"]) #session { display: none; }
+.integrated-dashboard .topbar, .dashboard-nav, .integrated-dashboard .wrap { flex-shrink: 0; }
+.care-panel { display: block; width: 100%; flex: 1; min-height: 0; border: 0; }
 
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
@@ -37,7 +52,7 @@ body { margin: 0; }
 .role { font-size: 0.8rem; padding: 0.2rem 0.6rem; border-radius: 999px; background: rgba(255,255,255,0.15); }
 .topbar .btn-ghost { color: #fff; border-color: rgba(255,255,255,0.4); }
 
-.wrap { max-width: 1180px; margin: 0 auto; padding: 1.25rem; }
+.wrap { width: 100%; min-width: 0; max-width: 1180px; margin: 0 auto; padding: 1.25rem; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.1rem 1.25rem; margin-bottom: 1.25rem; }
 h1 { margin: 0 0 0.5rem; font-size: 1.4rem; }
 h2 { margin: 0 0 0.35rem; font-size: 1.1rem; }
@@ -52,6 +67,8 @@ h2 { margin: 0 0 0.35rem; font-size: 1.1rem; }
 .signin { max-width: 30rem; margin: 3rem auto; }
 .signin label { display: block; font-weight: 600; margin: 0.75rem 0 0.35rem; }
 .signin input { width: 100%; font: inherit; padding: 0.6rem 0.75rem; border: 1.5px solid var(--line); border-radius: 8px; margin-bottom: 0.75rem; }
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.page-head h1 { margin: 0; }
 .error { color: var(--error); font-weight: 600; margin: 0 0 0.75rem; }
 .banner { background: var(--error-tint); border: 1.5px solid var(--error); color: var(--error); padding: 0.75rem 1rem; border-radius: var(--radius); margin-bottom: 1rem; font-weight: 600; }
 .loading { color: var(--muted); }
@@ -65,7 +82,7 @@ h2 { margin: 0 0 0.35rem; font-size: 1.1rem; }
 
 /* Filters: one row above the charts */
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1rem; margin-bottom: 1rem; }
-.seg { display: inline-flex; border: 1.5px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
+.seg { display: inline-flex; max-width: 100%; border: 1.5px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
 .seg button { font: inherit; font-size: 0.875rem; border: 0; background: transparent; padding: 0.45rem 0.9rem; cursor: pointer; color: var(--ink-2); }
 .seg button + button { border-left: 1.5px solid var(--line); }
 .seg button[aria-pressed="true"] { background: var(--forest); color: #fff; font-weight: 600; }
@@ -80,7 +97,7 @@ h2 { margin: 0 0 0.35rem; font-size: 1.1rem; }
 .empty { color: var(--muted); font-style: italic; margin: 0; }
 
 /* Ranked bar lists (single series) */
-.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
 .chart { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem 1.1rem; }
 .chart h3 { margin: 0 0 0.15rem; font-size: 0.98rem; }
 .chart .base { color: var(--muted); font-size: 0.8rem; margin: 0 0 0.75rem; }

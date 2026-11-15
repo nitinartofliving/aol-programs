@@ -48,7 +48,10 @@ const staffApi = new Set(['GET /api/survey', 'GET /api/staff/report', 'GET /api/
 
 const mounts = {
   outreach: (req, res) => outreach(req, res),
-  flyer: (req, res) => flyer.emit('request', req, res),
+  flyer: (req, res) => {
+    req.demoEventBySlug = slug => care.store.getEventBySlug(slug);
+    return flyer.emit('request', req, res);
+  },
   survey: (req, res, path) => {
     if (path === '/api' || path.startsWith('/api/')) {
       if (!publicSurveyApi.has(req.method + ' ' + path)) return notFound(req, res);

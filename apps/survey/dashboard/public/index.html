@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <meta name="referrer" content="no-referrer">
-  <title>Staff dashboard · AOL Programs follow-ups</title>
+  <title>Staff dashboard · Surveys</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="dashboard.css">
   <script type="module" src="dashboard.js"></script>
@@ -13,22 +13,36 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <span class="brand-title">AOL Programs follow-ups</span>
+      <span class="brand-title" id="dashboard-title">Surveys</span>
       <span class="brand-sub">Staff dashboard</span>
     </div>
     <div class="topbar-actions" id="session" hidden>
+      <span id="session-name"></span>
       <span class="role" id="role"></span>
-      <button type="button" class="btn btn-ghost" id="refresh">Refresh</button>
       <button type="button" class="btn btn-ghost" id="sign-out">Sign out</button>
+    </div>
+    <div class="topbar-actions" id="care-session" hidden>
+      <span id="care-name"></span>
+      <span class="role" id="care-role"></span>
+      <button type="button" class="btn btn-ghost" id="care-sign-out">Sign out</button>
     </div>
   </header>
 
-  <main class="wrap">
+  <nav id="dashboard-nav" class="dashboard-nav" aria-label="Staff dashboard sections" hidden>
+    <a href="#followups" data-section="followups">Surveys</a>
+    <a href="#people" data-section="people">People</a>
+    <a href="#events" data-section="events">Events</a>
+    <a href="#today" data-section="today">Follow-Ups</a>
+  </nav>
+
+  <main id="followups-panel" class="wrap">
     <!-- Sign in -->
     <section id="signin" class="card signin">
       <h1>Sign in</h1>
       <p class="muted">Paste your staff token (AOL_MANAGER_TOKEN or AOL_REPORT_TOKEN). It stays in this browser tab only and is cleared when you close it.</p>
       <form id="signin-form" autocomplete="off">
+        <label for="name">Your name</label>
+        <input id="name" name="name" autocomplete="name" maxlength="40" required>
         <label for="token">Staff token</label>
         <input id="token" name="token" type="password" spellcheck="false" autocapitalize="off" required>
         <p id="signin-error" class="error" role="alert" hidden></p>
@@ -40,6 +54,10 @@
     <p id="loading" class="loading" role="status" hidden>Loading…</p>
 
     <div id="app" hidden>
+      <div class="page-head">
+        <h1>Surveys</h1>
+        <button type="button" class="btn btn-ghost" id="refresh">Refresh</button>
+      </div>
       <!-- Headline numbers -->
       <section class="tiles" id="tiles" aria-label="Response counts"></section>
 
@@ -106,5 +124,6 @@
       <p class="muted footnote" id="footnote"></p>
     </div>
   </main>
+  <iframe id="care-panel" class="care-panel" title="People and Journeys" hidden></iframe>
 </body>
 </html>

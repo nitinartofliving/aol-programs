@@ -17,6 +17,7 @@ import { normalizePhone, openCareStore } from './store.mjs';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const { encodeQR } = createRequire(import.meta.url)('../flyer/engine/qr.js');
+const { safeUrl } = createRequire(import.meta.url)('../flyer/engine/util.js');
 
 const tokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
 const digest = t => createHash('sha256').update(t).digest();
@@ -147,6 +148,11 @@ export function createCareApp({ env = process.env, now = Date.now, log = console
     if (!partial || 'teacher' in b) out.teacher = text(b.teacher, limits.teacher, 'Teacher');
     if (!partial || 'place' in b) out.place = text(b.place, limits.place, 'Place');
     if (!partial || 'description' in b) out.description = text(b.description, limits.description, 'Description');
+    if (!partial || 'registrationUrl' in b) {
+      const link = text(b.registrationUrl, 2048, 'Registration link');
+      if (link && (!safeUrl(link).ok || new URL(link).protocol !== 'https:')) throw bad('Enter a complete public HTTPS registration link.', 'registrationUrl');
+      out.registrationUrl = link;
+    }
     if ('status' in b) out.status = oneOf(b.status, ['open', 'closed'], 'status');
     return out;
   };
@@ -228,7 +234,19 @@ export function createCareApp({ env = process.env, now = Date.now, log = console
       }
     }
     if (route === 'GET /api/events') return send(res, 200, store.listEvents());
-    if (route === 'POST /api/events') return send(res, 201, store.createEvent(eventInput(await readJson(req), false)));
+    if (route === 'POST /api/events') {
+      const body = await readJson(req);
+      const input = eventInput(body, false);
+      const key = body.flyerKey;
+      if (key !== undefined && (typeof key !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key))) throw bad('Invalid flyer request.');
+      let event = key && store.getEventByFlyerKey(key);
+      if (event && (event.status !== 'open' || ['title', 'program', 'teacher', 'startsAt', 'place', 'description', 'registrationUrl'].some(field => event[field] !== input[field]))) {
+        throw new HttpError(409, 'The saved event has changed. Start a new flyer to create another event.');
+      }
+      const existing = !!event;
+      if (!event) event = store.createEvent(input, key ?? null);
+      return send(res, existing ? 200 : 201, { ...event, publicUrl: `${origin(req)}/e/${event.slug}` });
+    }
     if ((m = path.match(/^\/api\/events\/([\w-]{1,64})(?:\/(attendance|complete))?$/))) {
       const [, id, what] = m;
       if (!store.getEvent(id)) throw new HttpError(404, 'This event was not found.');
@@ -273,7 +291,10 @@ export function createCareApp({ env = process.env, now = Date.now, log = console
         if (++posts > postsPerMinute) throw new HttpError(429, 'Please try again in a minute.');
         const b = await readJson(req);
         if (b.website) return send(res, 200, { ok: true }); // honeypot: quietly ignore bots
-        if (m[2] === 'register' && ev.status !== 'open') throw new HttpError(409, 'Registration for this event is closed.');
+        if (m[2] === 'register' && ev.status !== 'open') throw new HttpError(409, 'Registration for this event is closed.', { eventClosed: true });
+        if (m[2] === 'register' && b.expectedRegistrationUrl !== undefined && b.expectedRegistrationUrl !== ev.registration_url) {
+          throw new HttpError(409, 'The registration link changed. Refresh this page before continuing.');
+        }
         const fullName = text(b.fullName, limits.name, 'Name', { required: true });
         const phone = text(b.phone, limits.phone, 'Phone', { required: true });
         const n = normalizePhone(phone, countryCode);

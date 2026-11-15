@@ -54,6 +54,19 @@ function safeUrl(u) {
   if (!h.includes('.')) return { ok: false, reason: 'host name looks incomplete' };
   return { ok: true, url: x.href === String(u).trim() ? x.href : String(u).trim(), host: h };
 }
+function localDemoEvent(url, { enabled, remoteAddress, localPort, host, getEvent }) {
+  if (!enabled || !['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(remoteAddress) || typeof getEvent !== 'function') return false;
+  let link;
+  try { link = new URL(url); } catch { return false; }
+  const match = /^\/e\/([a-z0-9-]{1,80})$/.exec(link.pathname);
+  if (link.protocol !== 'http:' || link.username || link.password || link.search || link.hash ||
+      !['localhost', '127.0.0.1', '[::1]'].includes(link.hostname) ||
+      link.host !== host || link.port !== String(localPort) || !match) return false;
+  const event = getEvent(match[1]);
+  const official = safeUrl(event?.registration_url);
+  return event?.status === 'open' && official.ok && /^https:/.test(event.registration_url) &&
+    /(^|\.)example\.(org|com|net)$/i.test(official.host);
+}
 async function publicHost(host) {
   try { const r = await dns.lookup(host, { all: true }); return r.length > 0 && r.every(a => !PRIVATE.test(a.address) && a.address !== '::1' && !/^f[cd]/i.test(a.address)); } catch { return null; }
 }
@@ -74,4 +87,4 @@ async function checkLink(url, timeoutMs = 7000) {
   return { status: 'unavailable', detail: 'no response' };
 }
 const words = s => String(s || '').trim().split(/\s+/).filter(Boolean).length;
-module.exports = { MONTHS, WEEKDAYS, hexToRgb, relLum, contrast, parseDate, parseTime, fmtTime, fmtRange, validTimeZone, localTimeExists, tzLabel, sha256, sortKeys, safeUrl, checkLink, words };
+module.exports = { MONTHS, WEEKDAYS, hexToRgb, relLum, contrast, parseDate, parseTime, fmtTime, fmtRange, validTimeZone, localTimeExists, tzLabel, sha256, sortKeys, safeUrl, localDemoEvent, checkLink, words };

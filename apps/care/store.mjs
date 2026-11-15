@@ -59,6 +59,8 @@ CREATE TABLE IF NOT EXISTS events (
   starts_at TEXT NOT NULL,
   place TEXT NOT NULL DEFAULT '',
   description TEXT NOT NULL DEFAULT '',
+  registration_url TEXT NOT NULL DEFAULT '',
+  flyer_key TEXT,
   status TEXT NOT NULL DEFAULT 'open',
   created_at TEXT NOT NULL
 ) STRICT;
@@ -68,6 +70,7 @@ CREATE TABLE IF NOT EXISTS registrations (
   person_id TEXT NOT NULL REFERENCES people (id) ON DELETE CASCADE,
   attended INTEGER NOT NULL DEFAULT 0,
   walk_in INTEGER NOT NULL DEFAULT 0,
+  source_type TEXT NOT NULL DEFAULT 'registration',
   created_at TEXT NOT NULL,
   UNIQUE (event_id, person_id)
 ) STRICT;
@@ -110,6 +113,16 @@ export function openCareStore(file) {
   const db = new DatabaseSync(file);
   db.exec('PRAGMA busy_timeout = 2500; PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA secure_delete = ON;');
   db.exec(SCHEMA);
+  if (!db.prepare('PRAGMA table_info(events)').all().some(col => col.name === 'registration_url')) {
+    db.exec("ALTER TABLE events ADD COLUMN registration_url TEXT NOT NULL DEFAULT ''");
+  }
+  if (!db.prepare('PRAGMA table_info(registrations)').all().some(col => col.name === 'source_type')) {
+    db.exec("ALTER TABLE registrations ADD COLUMN source_type TEXT NOT NULL DEFAULT 'registration'");
+  }
+  if (!db.prepare('PRAGMA table_info(events)').all().some(col => col.name === 'flyer_key')) {
+    db.exec('ALTER TABLE events ADD COLUMN flyer_key TEXT');
+  }
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS events_flyer_key ON events(flyer_key)');
 
   const q = sql => db.prepare(sql);
   const nowIso = () => new Date().toISOString();
@@ -175,9 +188,9 @@ export function openCareStore(file) {
       steps: stepsFor(id),
       calls: q('SELECT * FROM calls WHERE person_id = ? ORDER BY created_at DESC').all(id)
         .map(c => ({ id: c.id, outcome: c.outcome, note: c.note, nextFollowUp: c.next_follow_up, volunteer: c.volunteer, createdAt: c.created_at })),
-      events: q(`SELECT e.id, e.title, e.program, e.starts_at, e.slug, r.attended FROM registrations r JOIN events e ON e.id = r.event_id
+      events: q(`SELECT e.id, e.title, e.program, e.starts_at, e.slug, r.attended, r.source_type FROM registrations r JOIN events e ON e.id = r.event_id
         WHERE r.person_id = ? ORDER BY e.starts_at DESC`).all(id)
-        .map(e => ({ id: e.id, title: e.title, program: e.program, startsAt: e.starts_at, slug: e.slug, attended: !!e.attended })),
+        .map(e => ({ id: e.id, title: e.title, program: e.program, startsAt: e.starts_at, slug: e.slug, attended: !!e.attended, sourceType: e.source_type })),
     };
   }
 
@@ -245,18 +258,20 @@ export function openCareStore(file) {
     const items = [];
     for (const r of rows) {
       const lastCall = lastCallFor(r.id);
-      let rank, why, kind;
+      let rank, why, kind, awaitingOfficialRegistration = false;
       if (r.next_follow_up && r.next_follow_up < today) { rank = 0; kind = 'overdue'; why = 'Your promised check-in is overdue'; }
       else if (r.next_follow_up === today) { rank = 1; kind = 'today'; why = 'You promised to check in today'; }
       else {
-        const upcoming = q(`SELECT e.title, e.starts_at, r.created_at FROM registrations r JOIN events e ON e.id = r.event_id
+        const upcoming = q(`SELECT e.title, e.starts_at, r.created_at, r.source_type, r.attended FROM registrations r JOIN events e ON e.id = r.event_id
           WHERE r.person_id = ? AND e.status = 'open' AND substr(e.starts_at, 1, 10) BETWEEN ? AND ? ORDER BY e.starts_at LIMIT 1`).get(r.id, today, soon);
-        if (!lastCall && r.created_at >= freshSince) { rank = 2; kind = 'new'; why = upcoming ? `New, and registered for ${upcoming.title}. Say hello` : 'New to the circle. Say hello'; }
-        else if (upcoming && (!lastCall || lastCall < upcoming.created_at)) { rank = 3; kind = 'upcoming'; why = `Coming to ${upcoming.title} on ${upcoming.starts_at.slice(0, 10)}. Say hello`; }
+        const handoff = upcoming && upcoming.source_type === 'handoff' && !upcoming.attended;
+        awaitingOfficialRegistration = !!handoff;
+        if (!lastCall && r.created_at >= freshSince) { rank = 2; kind = 'new'; why = upcoming ? handoff ? `New, and interested in ${upcoming.title}. Say hello` : `New, and registered for ${upcoming.title}. Say hello` : 'New to the circle. Say hello'; }
+        else if (upcoming && (!lastCall || lastCall < upcoming.created_at)) { rank = 3; kind = 'upcoming'; why = handoff ? `Interested in ${upcoming.title} on ${upcoming.starts_at.slice(0, 10)}. Say hello` : `Coming to ${upcoming.title} on ${upcoming.starts_at.slice(0, 10)}. Say hello`; }
       }
       if (rank === undefined) continue;
       const claimedByOther = r.claimed_by && r.claimed_until > nowMs ? r.claimed_by : null;
-      items.push({ ...summary(r), why, kind, rank, claimedBy: claimedByOther });
+      items.push({ ...summary(r), why, kind, rank, claimedBy: claimedByOther, awaitingOfficialRegistration });
     }
     return items.sort((a, b) => a.rank - b.rank || (a.nextFollowUp ?? '').localeCompare(b.nextFollowUp ?? '') || a.fullName.localeCompare(b.fullName));
   }
@@ -264,42 +279,47 @@ export function openCareStore(file) {
   // ---------- events ----------
   const eventRow = e => e && {
     id: e.id, slug: e.slug, title: e.title, program: e.program, teacher: e.teacher, startsAt: e.starts_at,
-    place: e.place, description: e.description, status: e.status, createdAt: e.created_at,
+    place: e.place, description: e.description, registrationUrl: e.registration_url, status: e.status, createdAt: e.created_at,
   };
-  const publicEvent = e => e && { slug: e.slug, title: e.title, program: e.program, teacher: e.teacher, startsAt: e.starts_at, place: e.place, description: e.description, status: e.status };
+  const publicEvent = e => e && { slug: e.slug, title: e.title, program: e.program, teacher: e.teacher, startsAt: e.starts_at, place: e.place, description: e.description, registrationUrl: e.registration_url, status: e.status };
 
   function listEvents() {
-    return q(`SELECT e.*, (SELECT count(*) FROM registrations r WHERE r.event_id = e.id) AS registered,
+    return q(`SELECT e.*, (SELECT count(*) FROM registrations r WHERE r.event_id = e.id AND r.source_type <> 'handoff') AS registered,
+      (SELECT count(*) FROM registrations r WHERE r.event_id = e.id AND r.source_type = 'handoff') AS handoffs,
       (SELECT count(*) FROM registrations r WHERE r.event_id = e.id AND r.attended = 1) AS attended FROM events e ORDER BY e.starts_at DESC`).all()
-      .map(e => ({ ...eventRow(e), registered: e.registered, attended: e.attended }));
+      .map(e => ({ ...eventRow(e), registered: e.registered, handoffs: e.handoffs, attended: e.attended }));
   }
 
   function getEvent(id) {
     const e = eventRow(q('SELECT * FROM events WHERE id = ?').get(id));
     if (!e) return null;
-    e.registrations = q(`SELECT r.attended, r.walk_in, r.created_at, p.id, p.full_name, p.phone, p.consent, p.do_not_contact,
+    e.registrations = q(`SELECT r.attended, r.walk_in, r.source_type, r.created_at, p.id, p.full_name, p.phone, p.consent, p.do_not_contact,
       (SELECT 1 FROM journey_steps s WHERE s.person_id = p.id AND s.event_id = r.event_id) AS completed
       FROM registrations r JOIN people p ON p.id = r.person_id WHERE r.event_id = ? ORDER BY p.full_name COLLATE NOCASE`).all(id)
       .map(r => ({ personId: r.id, fullName: r.full_name, phone: r.phone, consent: !!r.consent, doNotContact: !!r.do_not_contact,
-        attended: !!r.attended, walkIn: !!r.walk_in, completed: !!r.completed, registeredAt: r.created_at }));
+        attended: !!r.attended, walkIn: !!r.walk_in, sourceType: r.source_type, completed: !!r.completed, registeredAt: r.created_at }));
     return e;
   }
 
   const getEventBySlug = slug => q('SELECT * FROM events WHERE slug = ?').get(slug);
+  const getEventByFlyerKey = key => {
+    const row = q('SELECT id FROM events WHERE flyer_key = ?').get(key);
+    return row ? getEvent(row.id) : null;
+  };
 
-  function createEvent(e) {
+  function createEvent(e, flyerKey = null) {
     const base = slugify(e.title, e.startsAt);
     let slug = base;
     for (let n = 2; getEventBySlug(slug); n++) slug = `${base}-${n}`;
     const id = randomUUID();
-    q('INSERT INTO events (id, slug, title, program, teacher, starts_at, place, description, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(id, slug, e.title, e.program, e.teacher ?? '', e.startsAt, e.place ?? '', e.description ?? '', e.status === 'closed' ? 'closed' : 'open', nowIso());
+    q('INSERT INTO events (id, slug, title, program, teacher, starts_at, place, description, registration_url, flyer_key, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(id, slug, e.title, e.program, e.teacher ?? '', e.startsAt, e.place ?? '', e.description ?? '', e.registrationUrl ?? '', flyerKey, e.status === 'closed' ? 'closed' : 'open', nowIso());
     return getEvent(id);
   }
 
   // The slug never changes, so printed QR codes keep working.
   function updateEvent(id, f) {
-    const cols = { title: 'title', program: 'program', teacher: 'teacher', startsAt: 'starts_at', place: 'place', description: 'description', status: 'status' };
+    const cols = { title: 'title', program: 'program', teacher: 'teacher', startsAt: 'starts_at', place: 'place', description: 'description', registrationUrl: 'registration_url', status: 'status' };
     const sets = [], values = [];
     for (const [k, col] of Object.entries(cols)) if (k in f) { sets.push(col + ' = ?'); values.push(f[k]); }
     if (sets.length) q(`UPDATE events SET ${sets.join(', ')} WHERE id = ?`).run(...values, id);
@@ -326,7 +346,7 @@ export function openCareStore(file) {
       const personId = upsertPublicPerson(event, p);
       const had = q('SELECT 1 FROM registrations WHERE event_id = ? AND person_id = ?').get(event.id, personId);
       if (had) return { alreadyRegistered: true };
-      q('INSERT INTO registrations (id, event_id, person_id, created_at) VALUES (?, ?, ?, ?)').run(randomUUID(), event.id, personId, nowIso());
+      q('INSERT INTO registrations (id, event_id, person_id, source_type, created_at) VALUES (?, ?, ?, ?, ?)').run(randomUUID(), event.id, personId, event.registration_url ? 'handoff' : 'registration', nowIso());
       return { alreadyRegistered: false };
     });
   }
@@ -391,7 +411,7 @@ export function openCareStore(file) {
   return {
     listPeople, getPerson, findByPhone, createPerson, updatePerson, deletePerson, addStep, deleteStep,
     claim, release, logCall, queue,
-    listEvents, getEvent, getEventBySlug, publicEvent, createEvent, updateEvent, deleteEvent,
+    listEvents, getEvent, getEventBySlug, getEventByFlyerKey, publicEvent, createEvent, updateEvent, deleteEvent,
     register, checkIn, setAttended, markCompleted,
     listKnowledge, saveKnowledge, deleteKnowledge,
     close: () => db.close(),

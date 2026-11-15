@@ -125,7 +125,8 @@ async function plan(raw, ctx) {
   let url = rq.action.destination_url, urlOk = false;
   if (url) {
     const su = U.safeUrl(url);
-    if (!su.ok) add('BLOCKER', 'Link and QR Specialist', `The link was rejected: ${su.reason}.`, 'Provide a complete public https link.', 'action.destination_url', 'What is the complete public web address for the course?');
+    if (demo && ctx.isLocalDemoEvent?.(url)) urlOk = true;
+    else if (!su.ok) add('BLOCKER', 'Link and QR Specialist', `The link was rejected: ${su.reason}.`, 'Provide a complete public https link. Local demo event links require a fictional example.org official link.', 'action.destination_url', 'Use a public event link, or a local demo event with an example.org registration link.');
     else if (demo && !EXAMPLE_HOST.test(su.host)) add('BLOCKER', 'Link and QR Specialist', 'Demo mode never mixes real links with fictional events.', 'Use an example.org link.', 'action.destination_url', 'Use a fictional link such as https://example.org/sample-course for the demo.');
     else urlOk = true;
   }

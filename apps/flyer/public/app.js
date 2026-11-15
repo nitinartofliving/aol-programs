@@ -1,7 +1,7 @@
 (function () {
   const $ = id => document.getElementById(id);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const state = { cfg: null, job: null, survey: null, city: null, baseJob: null, baseSurvey: null, busy: false, adminToken: sessionStorage.getItem('adminToken') || '' };
+  const state = { cfg: null, job: null, survey: null, city: null, baseJob: null, baseSurvey: null, eventLink: null, busy: false, adminToken: sessionStorage.getItem('adminToken') || '' };
   let formVersion = 0;
   let localIssue = false;
   const fieldErrors = new Map();
@@ -27,6 +27,7 @@
       clearFieldError(row.querySelector('.s-start'));
     }
     $('addEventError').textContent = '';
+    updateEventLinkStatus();
     if (localIssue && !state.busy) {
       $('status').textContent = 'Answers changed. Select Make my flyer to check them again.';
     } else if (state.job?.status === 'NEEDS_INPUT' && !state.busy && $('questions').children.length) {
@@ -104,42 +105,71 @@
       schedule: { timezone: $('tz').value || null, sessions: [...document.querySelectorAll('#sessions .row')].map(r => ({ date: r.querySelector('.s-date').value, start_time: r.querySelector('.s-start').value, end_time: r.querySelector('.s-end').value || null })) },
       location: { delivery_mode: mode, city: $('city').value, venue: $('venue').value, address: $('address').value, on_course_page: $('onpage').checked },
       contacts: [...document.querySelectorAll('#contacts .row')].map(r => ({ name: r.querySelector('.c-name').value, phone: r.querySelector('.c-phone').value, email: r.querySelector('.c-email').value })),
-      action: { include_qr: $('qrOn').checked, destination_url: $('url').value || null, destination_type: $('dtype').value || null },
+      action: { include_qr: location.pathname.startsWith('/flyer/') || $('qrOn').checked, destination_url: $('url').value || null, destination_type: $('dtype').value || null },
       format: $('format').value, extra_notes: $('notes').value, revision: { base_artifact_id: null, requested_changes: [], locked_elements: [] }
     };
   }
-  function addToEvents() {
-    const error = $('addEventError');
-    error.textContent = '';
-    const survey = collectSurvey();
+  function eventDraft(survey) {
     const lines = survey.offering.raw_text.split('\n').map(line => line.trim()).filter(Boolean);
     const first = survey.schedule.sessions[0];
-    if (!lines.length || !first?.date || !first.start_time) {
-      clearFieldErrors();
-      const missing = [];
-      if (!lines.length) missing.push([$('offer'), 'Enter a course or event name.']);
-      if (!first?.date) missing.push([document.querySelector('#sessions .s-date') || $('addSession'), 'Enter the first date.']);
-      if (!first?.start_time) missing.push([document.querySelector('#sessions .s-start') || $('addSession'), 'Enter the first start time.']);
-      missing.forEach(([control, message]) => showFieldError(control, message));
-      error.textContent = 'Enter a course or event name and the first date and start time.';
-      missing[0][0].focus();
-      return;
-    }
-    const draft = {
-      title: lines[0],
-      program: $('eventType').value || null,
-      startsAt: first.date + 'T' + first.start_time,
+    return {
+      title: lines[0] || '',
+      program: $('eventType').value || 'Other',
+      startsAt: first?.date && first?.start_time ? first.date + 'T' + first.start_time : '',
       place: [survey.location.venue, survey.location.address, survey.location.city].map(s => s.trim()).filter(Boolean).join(', '),
       description: [lines.slice(1).join('\n'), survey.offering.approved_description?.trim()].filter(Boolean).join('\n\n'),
+      registrationUrl: $('url').value.trim(),
+      teacher: '',
     };
+  }
+  function matchesEvent(draft, event) {
+    return ['title', 'startsAt', 'place', 'description', 'registrationUrl', 'program'].every(key => draft[key] === (event[key] || ''));
+  }
+  function updateEventLinkStatus() {
+    if (!$('eventLinkStatus')) return;
+    const ev = state.eventLink?.event;
+    $('eventLinkStatus').textContent = ev && matchesEvent(eventDraft(collectSurvey()), ev)
+      ? 'Event created. The QR will use the selected destination.'
+      : 'An event will be created automatically when you make the flyer.';
+  }
+  function readEventLink() {
     try {
-      if (sessionStorage.getItem('aol-flyer-event-draft') && !confirm('Replace the existing flyer event draft?')) return;
-      sessionStorage.setItem('aol-flyer-event-draft', JSON.stringify(draft));
-      if (window.parent !== window) window.parent.location.hash = '#people';
-      else location.href = '/care/';
+      const raw = sessionStorage.getItem('aol-flyer-event-link');
+      state.eventLink = raw ? JSON.parse(raw) : null;
+      updateEventLinkStatus();
     } catch {
-      error.textContent = 'Could not open the event draft. Check browser storage and try again.';
+      state.eventLink = null;
+      $('eventLinkStatus').textContent = 'Could not read the event link. Check browser storage.';
     }
+  }
+  function signInForEvent(survey) {
+    sessionStorage.setItem('aol-flyer-survey', JSON.stringify({ survey, city: state.city, program: $('eventType').value, useOurForm: $('qrOn').checked }));
+    sessionStorage.setItem('aol-flyer-signin-pending', '1');
+    $('status').textContent = 'Sign in to People to automatically create the event and continue making the flyer.';
+    if (window.parent !== window) window.parent.location.hash = '#people';
+    else location.href = '/care/';
+  }
+  async function automaticEvent(draft, staffApi, checkedVersion) {
+    const linked = state.eventLink?.event;
+    if (linked && matchesEvent(draft, linked)) {
+      const response = await fetch('/e/api/events/' + encodeURIComponent(linked.slug), { cache: 'no-store' });
+      if (response.ok) {
+        const current = await response.json();
+        if (current.status === 'open' && matchesEvent(draft, current)) return linked;
+      } else if (response.status !== 404) throw new Error('Could not check the existing event. Try again.');
+      sessionStorage.removeItem('aol-flyer-creation');
+    }
+    if (formVersion !== checkedVersion) throw new Error('Answers changed while checking. Select Make my flyer again.');
+    const pending = JSON.parse(sessionStorage.getItem('aol-flyer-creation') || 'null');
+    const key = pending && JSON.stringify(pending.draft) === JSON.stringify(draft) ? pending.key : crypto.randomUUID();
+    sessionStorage.setItem('aol-flyer-creation', JSON.stringify({ draft, key }));
+    const saved = await staffApi('/care/api/events', { method: 'POST', body: { ...draft, flyerKey: key } });
+    const { registrations, ...event } = saved;
+    state.eventLink = { event };
+    try { sessionStorage.setItem('aol-flyer-event-link', JSON.stringify(state.eventLink)); }
+    catch { throw new Error('The event was created, but its link could not be saved in this browser. Check browser storage and retry.'); }
+    updateEventLinkStatus();
+    return event;
   }
   function matchEventType() {
     const firstLine = $('offer').value.split('\n').map(line => line.trim()).find(Boolean);
@@ -152,10 +182,15 @@
     matchEventType();
     document.querySelectorAll('#moods input').forEach(i => { i.checked = !!(f.mood && f.mood.selected || []).includes(i.value); });
     $('gurudev').checked = !!(f.imagery && f.imagery.include_gurudev);
+    $('cityOn').checked = !!(f.imagery && f.imagery.include_city_photo);
+    $('cityBox').classList.toggle('hide', !$('cityOn').checked);
+    state.city = null; $('cityInfo').textContent = '';
     $('tz').value = (f.schedule && f.schedule.timezone) || ''; $('sessions').innerHTML = ''; ((f.schedule && f.schedule.sessions) || [{}]).forEach(addSession);
     const l = f.location || {}; document.querySelector(`input[name=mode][value=${l.delivery_mode || 'in_person'}]`).checked = true; $('city').value = l.city || ''; $('venue').value = l.venue || ''; $('address').value = l.address || ''; $('onpage').checked = !!l.on_course_page;
     $('contacts').innerHTML = ''; (f.contacts && f.contacts.length ? f.contacts : [{}]).forEach(addContact);
     const a = f.action || {}; $('qrOn').checked = !!a.include_qr; $('url').value = a.destination_url || ''; $('dtype').value = a.destination_type || ''; if (f.format) $('format').value = f.format;
+    $('notes').value = f.extra_notes || '';
+    updateEventLinkStatus();
   }
 
   // ---------- city photo ----------
@@ -260,12 +295,61 @@
         setGates({ brief: 'bad' }); setBusy(null); incomplete[0].querySelector('.s-date').focus(); return;
       }
       const survey = collectSurvey(), checkedVersion = formVersion;
+      const integrated = location.pathname.startsWith('/flyer/');
+      const useOurForm = integrated && $('qrOn').checked;
+      const draft = integrated ? eventDraft(survey) : null;
+      if (integrated) {
+        if (!draft.registrationUrl || !draft.startsAt) {
+          localIssue = true;
+          $('status').className = 'status bad';
+          const target = !draft.registrationUrl ? $('url') : document.querySelector('#sessions ' + (survey.schedule.sessions[0]?.date ? '.s-start' : '.s-date')) || $('addSession');
+          showFieldError(target, !draft.registrationUrl ? 'Enter the official registration link.' : 'Enter the first date and start time.');
+          target.focus();
+          $('status').textContent = 'Enter the official link and the first event date and start time.';
+          setGates({ brief: 'bad' }); setBusy(null); return;
+        }
+      }
       if (state.baseJob) { survey.revision = { base_artifact_id: state.baseJob, requested_changes: ['Edited fields: ' + changedSections(state.baseSurvey, survey).join(', ')], locked_elements: lockedIds(state.baseSurvey, survey, (state.job && state.job.approved_copy && state.job.approved_copy.blocks) || []) }; }
-      state.survey = survey; let r = await api('api/jobs', { method: 'POST', body: survey });
+      const preflight = useOurForm ? { ...survey, action: { ...survey.action, include_qr: false } } : survey;
+      let r = await api('api/jobs', { method: 'POST', body: preflight });
       if (formVersion !== checkedVersion) { $('status').className = 'status wait'; $('status').textContent = 'Answers changed while checking. Select Make my flyer to check them again.'; setBusy(null); return; }
       show(r);
       if (r.status === 'NEEDS_INPUT') { const first = r.questions.map(q => questionTarget(q.field)).find(target => target && target !== $('opBtn')); if (first) first.focus(); else $('questions').scrollIntoView({ block: 'nearest' }); setBusy(null); return; }
       if (r.status !== 'PLANNING') { setBusy(null); return; }
+      if (integrated) {
+        const { session, api: staffApi } = await import('/care/shared/kit.js');
+        if (formVersion !== checkedVersion) { $('status').textContent = 'Answers changed while checking. Select Make my flyer again.'; setBusy(null); return; }
+        if (!session.token) { setBusy(null); signInForEvent(survey); return; }
+        setBusy('Creating the event…');
+        let linked;
+        try { linked = await automaticEvent(draft, staffApi, checkedVersion); }
+        catch (e) {
+          if (e.status === 401) { session.clear(); setBusy(null); signInForEvent(survey); return; }
+          throw e;
+        }
+        if (formVersion !== checkedVersion) { $('status').textContent = 'The event was created, but answers changed. Select Make my flyer to check them again.'; setBusy(null); return; }
+        if (useOurForm) {
+          let publicLink;
+          try { publicLink = new URL(linked.publicUrl); }
+          catch { throw new Error('The saved event link is invalid.'); }
+          if (publicLink.pathname !== '/e/' + linked.slug || publicLink.search || publicLink.hash ||
+              (state.cfg.execution_profile === 'production' && publicLink.protocol !== 'https:')) {
+            throw new Error('A production flyer needs a public HTTPS event link. Configure AOL_PUBLIC_ORIGIN.');
+          }
+          survey.action.destination_url = linked.publicUrl;
+          survey.action.destination_type = 'registration';
+          r = await api('api/jobs', { method: 'POST', body: survey });
+          if (formVersion !== checkedVersion) { $('status').textContent = 'Answers changed while checking. Select Make my flyer to check them again.'; setBusy(null); return; }
+          const linkProblem = r.questions.find(q => q.field === 'action.destination_url');
+          if (r.status === 'NEEDS_INPUT' && linkProblem) {
+            throw new Error('The event was created, but its event-form link was rejected: ' + linkProblem.reason + ' For a local demo, use localhost and a fictional example.org official link. For a real flyer, configure AOL_PUBLIC_ORIGIN as a public HTTPS address.');
+          }
+          show(r);
+          if (r.status === 'NEEDS_INPUT') { const first = r.questions.map(q => questionTarget(q.field)).find(target => target && target !== $('opBtn')); if (first) first.focus(); setBusy(null); return; }
+          if (r.status !== 'PLANNING') { setBusy(null); return; }
+        }
+      }
+      state.survey = survey;
       setBusy('Measuring text and fitting the layout…'); setGates({ ...gateStates(r), gateA: 'run' });
       const inp = r.workflow.layout_inputs, imgs = {}; for (const role of ['logo', 'portrait', 'city']) if (inp.assets[role]) imgs[role] = await loadImg(inp.assets[role].url);
       const fonts = await FlyerLayout.resolveFonts(inp); const layout = FlyerLayout.compute(inp, imgs, fonts);
@@ -339,18 +423,53 @@
   async function init() {
     await loadConfig(); addSession(); addContact();
     const hasPeopleApp = location.pathname.startsWith('/flyer/');
-    $('addEventBtn').hidden = !hasPeopleApp; $('addEventHint').hidden = !hasPeopleApp;
     $('eventTypeField').hidden = !hasPeopleApp;
-    if (hasPeopleApp) loadEventTypes();
+    $('destinationTypeField').hidden = hasPeopleApp;
+    $('eventLinkStatus').hidden = !hasPeopleApp;
+    if (!hasPeopleApp) {
+      $('qrLabel').textContent = 'Add a QR code to the course link';
+      $('urlLabel').textContent = 'Course link';
+      $('linkHint').textContent = 'The link is used exactly as entered. It is never shortened and no tracking is added.';
+    } else if (state.cfg.execution_profile === 'demo') {
+      $('linkHint').textContent += ' Local demo links work only on this computer and require a fictional example.org official link. Demo events are saved in People and may persist.';
+    }
+    if (hasPeopleApp) await loadEventTypes();
+    try {
+      const saved = sessionStorage.getItem('aol-flyer-survey');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        fillSurvey(parsed.survey);
+        state.city = parsed.city;
+        if (typeof parsed.useOurForm === 'boolean') $('qrOn').checked = parsed.useOurForm;
+        if (state.city) $('cityInfo').textContent = 'Previously uploaded city photo selected.';
+        if (parsed.program) { $('eventType').value = parsed.program; $('eventType').dataset.previous = $('eventType').value; }
+        sessionStorage.removeItem('aol-flyer-survey');
+      }
+    } catch { $('addEventError').textContent = 'Could not restore the flyer answers. Check browser storage.'; }
+    readEventLink();
+    const resumeAfterSignIn = () => {
+      try {
+        if (sessionStorage.getItem('aol-flyer-signin-ready') !== '1') return;
+        sessionStorage.removeItem('aol-flyer-signin-ready');
+        sessionStorage.removeItem('aol-flyer-survey');
+        if (window.parent !== window) window.parent.location.hash = '#flyer';
+        run();
+      } catch { $('status').textContent = 'Could not resume after sign-in. Check browser storage and select Make my flyer again.'; }
+    };
+    window.addEventListener('storage', e => {
+      if (e.key === 'aol-flyer-event-link') readEventLink();
+      if (e.key === 'aol-flyer-signin-ready') resumeAfterSignIn();
+    });
     $('form').addEventListener('input', e => answersChanged(e.target));
     $('form').addEventListener('change', e => answersChanged(e.target));
     $('addSession').onclick = () => { if (document.querySelectorAll('#sessions .row').length < 6) { addSession(); answersChanged(); } };
     $('addContact').onclick = () => { if (document.querySelectorAll('#contacts .row').length < 3) { addContact(); answersChanged(); } };
     $('cityOn').onchange = () => $('cityBox').classList.toggle('hide', !$('cityOn').checked); $('cityFile').onchange = onCityFile;
-    $('makeBtn').onclick = run; $('addEventBtn').onclick = addToEvents; $('fixtureBtn').onclick = () => fillSurvey(state.cfg.demo_fixture); $('opBtn').onclick = openOperator; $('opClose').onclick = () => $('opDlg').close(); $('historyBtn').onclick = openHistory; $('histClose').onclick = () => $('histDlg').close();
+    $('makeBtn').onclick = run; $('fixtureBtn').onclick = () => fillSurvey(state.cfg.demo_fixture); $('opBtn').onclick = openOperator; $('opClose').onclick = () => $('opDlg').close(); $('historyBtn').onclick = openHistory; $('histClose').onclick = () => $('histDlg').close();
     $('reviseCancel').onclick = () => { state.baseJob = null; state.baseSurvey = null; $('reviseBar').classList.add('hide'); };
     document.querySelectorAll('#viewbar [data-view]').forEach(b => b.onclick = () => { document.querySelectorAll('#viewbar [data-view]').forEach(x => x.classList.toggle('on', x === b)); $('sheet').classList.toggle('phone', b.dataset.view === 'phone'); });
     window.__studio = { state, collectSurvey, fillSurvey, run };
+    if (hasPeopleApp) resumeAfterSignIn();
   }
   init();
 })();

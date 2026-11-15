@@ -25,6 +25,8 @@ A demo flyer is labelled "DESIGN SAMPLE · FICTIONAL EVENT", uses example.org co
 
 When the brief needs changes, the relevant fields show the check's questions inline. Update the answers and select **Make my flyer** again to recheck them.
 
+When used in AOL Programs, enter the official registration link and select **Make my flyer**. Sign in to People if prompted; an event is created automatically using the first date. Check **Add a QR code to our event form** to save interest before sending visitors to the official link, or leave it unchecked to link directly to the official page without tracking. Official registration is not confirmed here, and follow-up requires consent. Local demo event links only work on the host computer and use fictional example.org links. Demo events use the current People storage and persist unless People demo mode is enabled; real flyers require a public HTTPS origin and persistent storage.
+
 ## Production setup (real flyers)
 
 Open **Operator** in the top bar (allowed from this computer, or with `ADMIN_TOKEN` when hosted).

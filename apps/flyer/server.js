@@ -81,11 +81,15 @@ function layoutInputs(job) {
   return { canvas: G.CANVAS[P.rq.format], margin: cfg.safe_margin_px, blocks: P.copy.blocks, assets: { logo: a(P.sel.logo), portrait: a(P.sel.portrait), city: a(P.sel.city) }, logo_policy: cfg.logo_policy, palette: P.palette, mood: P.mood, qr: P.qr, fonts: cfg.approved_fonts, approved_fonts_files: A.inventory().fonts, profile: job.profile, spec_version: job.spec_version || 0 };
 }
 
-async function createJob(raw) {
+async function createJob(raw, req) {
   const cfg = loadCfg(), profile = cfg.execution_profile === 'demo' ? 'demo' : 'production';
   const inv = A.inventory(), now = new Date();
   const job = { id: 'job_' + crypto.randomBytes(5).toString('hex'), created: now.toISOString(), profile, cfg, request_id: (raw && raw.request_id) || 'req_' + crypto.randomBytes(4).toString('hex'), raw, renders: [], layout_rounds: 0, spec_version: 0 };
-  job.plan = await plan(raw, { cfg, profile, registry: registry(), inv, now, llm });
+  job.plan = await plan(raw, { cfg, profile, registry: registry(), inv, now, llm,
+    isLocalDemoEvent: url => profile === 'demo' && U.localDemoEvent(url, {
+      enabled: ['127.0.0.1', '::1', 'localhost'].includes(process.env.HOST || '127.0.0.1'), remoteAddress: req?.socket?.remoteAddress,
+      localPort: req?.socket?.localPort, host: req?.headers?.host, getEvent: req?.demoEventBySlug,
+    }) });
   if (job.plan.status === 'PLANNING' && profile === 'production' && job.plan.links && job.plan.links.url) {
     job.link_status = await U.checkLink(job.plan.links.url);
     if (job.link_status.status === 'failed') { job.plan.issues.push({ severity: 'BLOCKER', owner: 'Link and QR Specialist', problem: 'The destination looks broken: ' + job.link_status.detail, required_fix: 'Provide a working link.', verification_status: 'OPEN' }); job.plan.questions.push({ field: 'action.destination_url', question: 'This link did not work. What is the correct address?', reason: job.link_status.detail }); job.plan.status = 'NEEDS_INPUT'; }
@@ -166,7 +170,7 @@ const server = http.createServer(async (req, res) => {
       const f = crypto.randomBytes(6).toString('hex') + (info.type === 'jpeg' ? '.jpg' : '.' + info.type); fs.writeFileSync(path.join(ROOT, 'uploads', 'city', f), buf);
       return send(res, 200, { asset_id: 'city:' + f, width: info.width, height: info.height, url: 'uploads/city/' + f });
     }
-    if (p === '/api/jobs' && req.method === 'POST') { const job = await createJob(await readBody(req)); return send(res, 200, buildResponse(job)); }
+    if (p === '/api/jobs' && req.method === 'POST') { const job = await createJob(await readBody(req), req); return send(res, 200, buildResponse(job)); }
     if (p === '/api/jobs' && req.method === 'GET') return send(res, 200, [...jobs.values()].sort((a, b) => b.created.localeCompare(a.created)).slice(0, 30).map(j => ({ id: j.id, title: j.plan && j.plan.rq && j.plan.rq.offering.display_name, status: j.status, profile: j.profile, created: j.created })));
     const m = p.match(/^\/api\/jobs\/(job_\w+)(?:\/(layout|render|review))?$/);
     if (m) {

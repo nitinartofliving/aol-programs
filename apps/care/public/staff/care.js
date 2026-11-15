@@ -1,6 +1,8 @@
 import { api, formatDate, formatDateTime, formatWhen, h, session, setupSignIn, toast } from './shared/kit.js';
 
 let me = null;
+const embeddedInStaff = new URLSearchParams(location.search).get('embedded') === 'staff' && window.parent !== window;
+if (embeddedInStaff) document.documentElement.classList.add('staff-embedded');
 const view = document.getElementById('view');
 const dialog = document.getElementById('dialog');
 
@@ -10,6 +12,7 @@ const canContact = p => p.consent && !p.doNotContact && !!p.phoneDigits;
 
 function messageFor(p) {
   const hi = `Hi ${firstName(p)}, it's ${me.name} from the Art of Living.`;
+  if (p.awaitingOfficialRegistration) return `${hi} Thanks for your interest! Have you had a chance to complete your registration?`;
   if (p.kind === 'upcoming' && p.why) return `${hi} Looking forward to seeing you soon! Is there anything you'd like to know before you come?`;
   if (p.status === 'Potential') return `${hi} You recently connected with us and I wanted to say hello. How are you doing?`;
   const goal = p.goal ? ` You mentioned "${p.goal}".` : '';
@@ -221,7 +224,7 @@ async function renderPerson(id) {
           h('span', { class: 'eyebrow' }, 'Events'),
           h('ul', { class: 'steps' }, p.events.map(e => h('li', null,
             h('div', null, h('a', { href: '#event/' + e.id }, e.title), h('div', { class: 'muted small' }, formatDateTime(e.startsAt))),
-            h('span', { class: e.attended ? 'badge ok' : 'badge' }, e.attended ? 'Attended' : 'Registered'))))) : null)));
+            h('span', { class: e.attended ? 'badge ok' : 'badge' }, e.attended ? 'Attended' : e.sourceType === 'handoff' ? 'Interest submitted' : 'Registered'))))) : null)));
 }
 
 function journeyPanel(p) {
@@ -266,7 +269,7 @@ async function renderEvents() {
     h('div', { class: 'row' }, h('span', { class: 'badge accent' }, e.program), e.status === 'closed' && h('span', { class: 'badge' }, 'Closed')),
     h('h3', null, e.title),
     h('p', { class: 'muted small' }, formatDateTime(e.startsAt), e.place ? ` · ${e.place}` : ''),
-    h('p', { class: 'small' }, `${e.registered} registered · ${e.attended} attended`));
+    h('p', { class: 'small' }, `${e.registered} registered · ${e.handoffs ?? 0} interested · ${e.attended} attended`));
   view.replaceChildren(
     h('div', { class: 'page-head spread' },
       h('div', null, h('h1', null, 'Events'), h('p', { class: 'muted' }, 'Each event gets a sign-up QR code and a venue check-in QR code.')),
@@ -286,7 +289,7 @@ function eventForm(e, draft = null, draftRaw = null) {
     let titleTouched = !!data;
     title.addEventListener('input', () => { titleTouched = true; });
     program.addEventListener('change', () => { if (!titleTouched) title.value = program.value; });
-    const form = h('form', { method: 'dialog', novalidate: true },
+    const form = h('form', { class: 'event-form', method: 'dialog', novalidate: true },
       h('h2', null, e ? 'Edit event' : 'Create an event'),
       draft && h('p', { class: 'notice' }, 'From Flyer Studio: only the first date is copied. Check the program and event details before creating it.'),
       h('div', { class: 'fields' }, h('label', null, 'Program', program), h('label', null, 'Date and time', h('input', { name: 'startsAt', type: 'datetime-local', required: true, value: data?.startsAt ?? '' }))),
@@ -295,6 +298,8 @@ function eventForm(e, draft = null, draftRaw = null) {
         h('label', null, 'Teacher', h('input', { name: 'teacher', maxlength: 80, value: e?.teacher ?? '' })),
         h('label', null, 'Place', h('input', { name: 'place', maxlength: 150, value: data?.place ?? '' }))),
       h('label', null, 'Description ', h('span', { class: 'optional' }, '(shown on the sign-up page)'), h('textarea', { name: 'description', rows: 3, maxlength: 600, value: data?.description ?? '' })),
+      h('label', null, 'Official registration link ', h('span', { class: 'optional' }, '(optional)'), h('input', { name: 'registrationUrl', type: 'url', maxlength: 2048, placeholder: 'https://…', value: data?.registrationUrl ?? '' })),
+      h('p', { class: 'muted small' }, 'When provided, people submit their details here and then continue to this link. Their official registration is not confirmed by this app.'),
       e && h('p', { class: 'muted small' }, 'The event link and QR codes never change, so printed codes keep working.'),
       h('p', { class: 'error', role: 'alert' }),
       h('div', { class: 'row' }, h('button', { class: 'btn primary', type: 'submit' }, e ? 'Save' : 'Create and get QR codes'), h('button', { class: 'btn', type: 'button', onclick: close }, 'Cancel')));
@@ -303,15 +308,30 @@ function eventForm(e, draft = null, draftRaw = null) {
       ev.preventDefault();
       if (saving) return;
       const f = form.elements;
-      const body = { program: f.program.value, title: f.title.value, startsAt: f.startsAt.value, teacher: f.teacher.value, place: f.place.value, description: f.description.value };
+      const body = { program: f.program.value, title: f.title.value, startsAt: f.startsAt.value, teacher: f.teacher.value, place: f.place.value, description: f.description.value, registrationUrl: f.registrationUrl.value };
       saving = true;
       const submit = form.querySelector('button[type=submit]');
       submit.disabled = true;
       try {
         const saved = await api(e ? 'api/events/' + e.id : 'api/events', { method: e ? 'PATCH' : 'POST', body });
-        if (draft) clearFlyerDraft(draftRaw);
+        if (draft) {
+          try {
+            if (!saved.publicUrl) throw new Error('The event link was not returned.');
+            sessionStorage.setItem('aol-flyer-event-link', JSON.stringify({ event: saved }));
+            clearFlyerDraft(draftRaw);
+          } catch {
+            clearFlyerDraft(draftRaw);
+            close();
+            location.hash = '#event/' + saved.id;
+            toast('Event created, but its link could not be sent to Flyer Studio. Open the event to see its QR code.');
+            return;
+          }
+        }
         close();
-        if (e) route(); else location.hash = '#event/' + saved.id;
+        if (draft) {
+          if (window.parent !== window) window.parent.location.hash = '#flyer';
+          else location.href = '/#flyer';
+        } else if (e) route(); else location.hash = '#event/' + saved.id;
       } catch (err) { fieldError(form, err); }
       finally { saving = false; submit.disabled = false; }
     });
@@ -382,7 +402,7 @@ async function renderEvent(id) {
     h('section', { class: 'panel' }, h('div', { class: 'qr-pair' }, qrBox(e, 'register'), qrBox(e, 'checkin'))),
     h('section', { class: 'panel stack' },
       h('div', { class: 'spread' },
-        h('h2', null, `People (${e.registrations.length} registered · ${attendedCount} attended)`),
+        h('h2', null, `People (${e.registrations.filter(r => r.sourceType !== 'handoff').length} registered · ${e.registrations.filter(r => r.sourceType === 'handoff').length} interested · ${attendedCount} attended)`),
         isStep && attendedCount > 0 && h('button', { class: 'btn primary', type: 'button', onclick: async () => {
           const r = await api(`api/events/${e.id}/complete`, { method: 'POST', body: {} });
           toast(r.added ? `Added ${e.program} to ${r.added} ${r.added === 1 ? 'journey' : 'journeys'}.` : 'Everyone who attended already has this step.');
@@ -392,7 +412,7 @@ async function renderEvent(id) {
       e.registrations.length ? h('div', { class: 'table-scroll' }, h('table', null,
         h('thead', null, h('tr', null, h('th', null, 'Name'), h('th', null, 'Phone'), h('th', null, 'Attended'), isStep && h('th', null, 'Journey'))),
         h('tbody', null, e.registrations.map(r => h('tr', null,
-          h('td', null, h('a', { href: '#person/' + r.personId }, r.fullName), r.walkIn ? h('span', { class: 'badge', style: 'margin-left:6px' }, 'Walk-in') : null, !r.consent ? h('span', { class: 'badge warn', style: 'margin-left:6px' }, 'No consent') : null),
+          h('td', null, h('a', { href: '#person/' + r.personId }, r.fullName), r.walkIn ? h('span', { class: 'badge', style: 'margin-left:6px' }, 'Walk-in') : null, r.sourceType === 'handoff' ? h('span', { class: 'badge warn', style: 'margin-left:6px' }, 'Official registration unconfirmed') : null, !r.consent ? h('span', { class: 'badge warn', style: 'margin-left:6px' }, 'No consent') : null),
           h('td', null, r.phone),
           h('td', null, h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: r.attended, 'aria-label': `${r.fullName} attended`, onchange: async ev => {
             await api(`api/events/${e.id}/attendance`, { method: 'POST', body: { personId: r.personId, attended: ev.target.checked } }); renderEvent(id);
@@ -400,7 +420,7 @@ async function renderEvent(id) {
           isStep && h('td', null, r.completed ? h('span', { class: 'badge ok' }, `✓ ${e.program}`) : r.attended ? h('button', { class: 'btn small', type: 'button', onclick: async () => {
             await api(`api/events/${e.id}/complete`, { method: 'POST', body: { personIds: [r.personId] } }); toast(`${e.program} added to ${r.fullName}'s journey.`); renderEvent(id);
           } }, 'Mark completed') : h('span', { class: 'muted small' }, '—')))))))
-        : h('p', { class: 'muted' }, 'No one has registered yet. Share the QR code or link above.')));
+        : h('p', { class: 'muted' }, 'No one has signed up or expressed interest yet. Share the QR code or link above.')));
 }
 
 // ---------- routing ----------
@@ -425,6 +445,10 @@ function signedOut() {
   me = null;
   document.getElementById('app').hidden = true;
   document.getElementById('signin').hidden = false;
+  if (embeddedInStaff) window.parent.postMessage({ type: 'care-session', user: null }, location.origin);
+  const notice = document.getElementById('flyerSigninNotice');
+  try { notice.hidden = sessionStorage.getItem('aol-flyer-signin-pending') !== '1'; }
+  catch { notice.hidden = false; notice.textContent = 'Browser storage is unavailable. Sign-in requires browser storage.'; }
 }
 
 const flyerDraftKey = 'aol-flyer-event-draft';
@@ -441,7 +465,8 @@ function updateFlyerDraft(open = false) {
     bar.hidden = false;
     const data = JSON.parse(raw);
     if (!data || !['title', 'startsAt', 'place', 'description'].every(key => typeof data[key] === 'string') ||
-        (data.program != null && typeof data.program !== 'string')) {
+        (data.program != null && typeof data.program !== 'string') ||
+        (data.registrationUrl != null && typeof data.registrationUrl !== 'string')) {
       throw new Error('Invalid event draft.');
     }
     flyerDraft = { raw, data };
@@ -470,9 +495,20 @@ document.getElementById('dismissFlyerDraft').addEventListener('click', () => {
   try { sessionStorage.removeItem(flyerDraftKey); updateFlyerDraft(); }
   catch { document.getElementById('flyerDraftError').textContent = 'Could not dismiss the draft. Check browser storage and try again.'; }
 });
-window.addEventListener('storage', e => { if (e.key === flyerDraftKey) updateFlyerDraft(true); });
+window.addEventListener('storage', e => {
+  if (e.key === flyerDraftKey) updateFlyerDraft(true);
+  if (e.key === 'aol-flyer-signin-pending' && e.newValue === '1' && !session.token) signedOut();
+});
 
 window.addEventListener('hashchange', route);
+if (embeddedInStaff) {
+  document.querySelector('.subnav').remove();
+  window.addEventListener('message', event => {
+    if (event.origin !== location.origin || event.source !== window.parent || event.data?.type !== 'care-sign-out') return;
+    session.clear();
+    signedOut();
+  });
+}
 const signIn = setupSignIn({
   form: document.getElementById('signinForm'),
   error: document.getElementById('signinError'),
@@ -482,11 +518,24 @@ const signIn = setupSignIn({
     me = data;
     document.getElementById('signin').hidden = true;
     document.getElementById('app').hidden = false;
-    document.getElementById('whoName').textContent = me.name;
-    const role = document.getElementById('whoRole');
-    role.textContent = me.role === 'manager' ? 'Manager' : 'Volunteer';
-    role.className = me.role === 'manager' ? 'badge accent' : 'badge';
+    if (embeddedInStaff) {
+      window.parent.postMessage({ type: 'care-session', user: { name: me.name, role: me.role } }, location.origin);
+    } else {
+      document.getElementById('whoName').textContent = me.name;
+      const role = document.getElementById('whoRole');
+      role.textContent = me.role === 'manager' ? 'Manager' : 'Volunteer';
+      role.className = me.role === 'manager' ? 'badge accent' : 'badge';
+    }
     route();
+    try {
+      if (sessionStorage.getItem('aol-flyer-signin-pending') === '1') {
+        sessionStorage.removeItem('aol-flyer-signin-pending');
+        sessionStorage.setItem('aol-flyer-signin-ready', '1');
+        if (window.top.location.pathname === '/') window.top.location.hash = '#flyer';
+        else window.top.location.href = '/#flyer';
+        return;
+      }
+    } catch { toast('Signed in, but could not return to the flyer. Check browser storage.'); }
     updateFlyerDraft(true);
   },
   onSignedOut: signedOut,

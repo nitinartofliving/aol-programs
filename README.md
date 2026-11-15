@@ -4,16 +4,19 @@ One web app with several tools, each in its own tab. The home page lets you choo
 
 | Tab | Path | What it does |
 | --- | --- | --- |
-| People | `/care/` | Everyone in your circle and their journey; Today's follow-up queue; WhatsApp / SMS / Call; events with sign-up and check-in QR codes. Needs a staff token |
 | Outreach Finder | `/outreach/` | Find events, universities, wellness clubs and contacts in a Canadian city; manage leads; export CSV |
 | Flyer Studio | `/flyer/` | Survey → checked, print-ready course flyer with a real QR code; human review before download |
 | Follow-up Survey | `/survey/` | Public phone survey for program graduates with a suggested next step |
 | SevaAssist | `/ask/` | Approved answers for volunteers and teachers, with sources. Needs a staff token |
-| Staff Dashboard | `/staff/` | Trends, suggestions and named responses. Needs the staff token |
+| Staff Dashboard | `/staff/` | Surveys, People, Events and Follow-Ups. Surveys and People have separate staff sign-ins |
 
 Public pages opened from event QR codes (no login): `/e/<event>` to register, `/e/<event>/in` to check in at the venue.
 
-In Flyer Studio, choose a course or event type from the People program list, or choose Other. **Add to events** copies that type and the current form's title, first date and start time, location and description into a People event draft. Sign in, review the program and details, and create the event to save it; the flyer image and later dates are not copied.
+Staff Dashboard includes Surveys and the People, Events and Follow-Ups views. People contains journeys, contact tools and event QR codes; Follow-Ups shows the Today queue. People is also available directly at `/care/`. Surveys accepts manager or reporter tokens; People views require a manager or volunteer token and their own sign-in. Each sign-in asks for a display name; it is not an authenticated identity. The dashboard header shows the active view's name and role and signs out of that view only.
+
+In Flyer Studio, enter the official course registration URL and select **Make my flyer**. Sign in to People if prompted; the event is created automatically using the first date, location and description. With **Add a QR code to our event form** checked, the QR opens our form; after saving their details, visitors continue to the official site to complete registration. When unchecked, the QR goes directly to the official site, so this app cannot track those registrations. People can optionally consent to volunteer follow-up. Interest submissions are not confirmed official registrations. The flyer image and later dates are not copied to the event.
+
+Existing events without an official registration URL keep their original sign-up flow. For real flyers, use a stable public HTTPS deployment with `AOL_PUBLIC_ORIGIN` and persistent People storage. A localhost QR works only on the same computer. Local demo flyers require a fictional example.org course link; their events use the current People storage and persist unless People demo mode is enabled.
 
 ## People & Journeys
 

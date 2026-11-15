@@ -2,6 +2,7 @@
 const $ = id => document.getElementById(id);
 const [, , slug, mode] = location.pathname.replace(/\/$/, '').split('/');
 const checkIn = mode === 'in';
+let eventInfo = null;
 
 function formatDateTime(local) {
   const [date, time] = local.split('T');
@@ -29,6 +30,7 @@ async function load() {
     return;
   }
   document.title = `${checkIn ? 'Check in' : 'Register'} · ${ev.title}`;
+  eventInfo = ev;
   $('event').hidden = false;
   $('program').textContent = ev.program;
   $('title').textContent = ev.title;
@@ -46,6 +48,10 @@ async function load() {
     $('emailField').hidden = true;
   } else if (ev.status !== 'open') {
     return show('closed');
+  } else if (ev.registrationUrl) {
+    $('formTitle').textContent = 'Share your details';
+    $('handoffHint').hidden = false;
+    $('submit').textContent = 'Continue to official registration';
   }
   show('formPanel');
 }
@@ -61,18 +67,29 @@ $('form').addEventListener('submit', async e => {
     const res = await fetch(`/e/api/events/${encodeURIComponent(slug)}/${checkIn ? 'checkin' : 'register'}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fullName: f.fullName.value, phone: f.phone.value, email: f.email.value, goal: f.goal.value, consent: f.consent.checked, website: f.website.value }),
+      body: JSON.stringify({ fullName: f.fullName.value, phone: f.phone.value, email: f.email.value, goal: f.goal.value, consent: f.consent.checked, website: f.website.value, ...(!checkIn ? { expectedRegistrationUrl: eventInfo.registrationUrl } : {}) }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       $('error').textContent = data.error || 'Something went wrong. Please try again.';
-      if (res.status === 409) show('closed');
+      if (data.eventClosed) show('closed');
       return;
     }
     const name = f.fullName.value.trim().split(/\s+/)[0];
     if (checkIn) {
       $('doneTitle').textContent = data.alreadyCheckedIn ? `You're already checked in, ${name}.` : `Welcome, ${name}! You're checked in.`;
       $('doneText').textContent = 'Enjoy the session.';
+    } else if (eventInfo?.registrationUrl && data.event?.registrationUrl) {
+      $('doneTitle').textContent = 'Your details are saved';
+      $('doneText').textContent = 'Complete your registration on the official website. If you are not redirected, use the button below.';
+      $('continueLink').href = data.event.registrationUrl;
+      $('continueLink').hidden = false;
+      show('done');
+      $('formPanel').hidden = true;
+      $('done').focus();
+      try { location.assign(data.event.registrationUrl); }
+      catch { $('doneText').textContent = 'Automatic navigation was blocked. Use the button below to complete your registration.'; }
+      return;
     } else {
       $('doneTitle').textContent = data.alreadyRegistered ? "You're already registered" : "You're on the list!";
       $('doneText').textContent = `See you ${$('when').textContent}${$('place').textContent ? ' at ' + $('place').textContent : ''}.`;
