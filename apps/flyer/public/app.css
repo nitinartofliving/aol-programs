@@ -204,3 +204,22 @@ textarea {
     transition: none;
   }
 }
+
+/* Keep the official Art of Living logo readable */
+.brand-logo {
+  height: 64px;
+  width: auto;
+  max-width: 190px;
+  padding: 8px 12px;
+  background: #ffffff;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+@media (max-width: 620px) {
+  .brand-logo {
+    height: 52px;
+    max-width: 150px;
+    padding: 6px 8px;
+  }
+}
