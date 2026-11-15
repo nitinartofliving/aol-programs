@@ -225,51 +225,5 @@ textarea {
 }
 
 
-/* Flyer Studio — Light Editorial Header */
 
-.top {
-  background: #F8F7F2;
-  color: #25342F;
-  border-bottom: 1px solid #E5EAE3;
-  min-height: 84px;
-  padding: 12px 32px;
-}
-
-.brand h1 {
-  color: #25342F;
-  font-size: 26px;
-}
-
-.brand-logo {
-  background: #FFFFFF;
-  border-radius: 8px;
-  padding: 6px 10px;
-}
-
-.top .btn.ghost {
-  color: #344B40;
-  background: transparent;
-  border-color: #A8B8AA;
-}
-
-.top .btn.ghost:hover {
-  background: #DDE7DE;
-  border-color: #344B40;
-}
-
-.top .pill {
-  background: #DDE7DE;
-  color: #25342F;
-}
-
-/* Smaller header on mobile */
-@media (max-width: 620px) {
-  .top {
-    padding: 12px 16px;
-  }
-
-  .brand h1 {
-    font-size: 22px;
-  }
-}
 
