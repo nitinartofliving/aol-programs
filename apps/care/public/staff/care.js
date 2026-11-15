@@ -1,4 +1,4 @@
-import { api, formatDate, formatDateTime, formatWhen, h, setupSignIn, toast } from './shared/kit.js';
+import { api, formatDate, formatDateTime, formatWhen, h, session, setupSignIn, toast } from './shared/kit.js';
 
 let me = null;
 const view = document.getElementById('view');
@@ -273,36 +273,47 @@ async function renderEvents() {
       h('button', { class: 'btn primary', type: 'button', onclick: () => showDialog(eventForm()) }, '+ Create an event')),
     h('h2', { style: 'margin-bottom:12px' }, `Upcoming (${upcoming.length})`),
     upcoming.length ? h('div', { class: 'event-list' }, upcoming.map(card)) : h('p', { class: 'panel empty' }, 'No upcoming events. Create one to get its QR code.'),
-    past.length ? [h('h2', { style: 'margin:28px 0 12px' }, `Past (${past.length})`), h('div', { class: 'event-list' }, past.map(card))] : null);
+    ...(past.length ? [h('h2', { style: 'margin:28px 0 12px' }, `Past (${past.length})`), h('div', { class: 'event-list' }, past.map(card))] : []));
 }
 
-function eventForm(e) {
+function eventForm(e, draft = null, draftRaw = null) {
   return close => {
-    const program = h('select', { name: 'program' }, me.eventPrograms.map(p => h('option', { value: p, selected: e ? e.program === p : p === 'Intro Talk' }, p)));
-    const title = h('input', { name: 'title', required: true, maxlength: 100, value: e?.title ?? 'Intro Talk' });
-    let titleTouched = !!e;
+    const data = e || draft;
+    let selectedProgram = e?.program ?? 'Intro Talk';
+    if (draft) selectedProgram = me.eventPrograms.includes(draft.program) ? draft.program : me.eventPrograms.find(p => p.toLowerCase() === draft.title.toLowerCase()) || 'Other';
+    const program = h('select', { name: 'program' }, me.eventPrograms.map(p => h('option', { value: p, selected: selectedProgram === p }, p)));
+    const title = h('input', { name: 'title', required: true, maxlength: 100, value: data?.title ?? 'Intro Talk' });
+    let titleTouched = !!data;
     title.addEventListener('input', () => { titleTouched = true; });
     program.addEventListener('change', () => { if (!titleTouched) title.value = program.value; });
     const form = h('form', { method: 'dialog', novalidate: true },
       h('h2', null, e ? 'Edit event' : 'Create an event'),
-      h('div', { class: 'fields' }, h('label', null, 'Program', program), h('label', null, 'Date and time', h('input', { name: 'startsAt', type: 'datetime-local', required: true, value: e?.startsAt ?? '' }))),
+      draft && h('p', { class: 'notice' }, 'From Flyer Studio: only the first date is copied. Check the program and event details before creating it.'),
+      h('div', { class: 'fields' }, h('label', null, 'Program', program), h('label', null, 'Date and time', h('input', { name: 'startsAt', type: 'datetime-local', required: true, value: data?.startsAt ?? '' }))),
       h('label', null, 'Title', title),
       h('div', { class: 'fields' },
         h('label', null, 'Teacher', h('input', { name: 'teacher', maxlength: 80, value: e?.teacher ?? '' })),
-        h('label', null, 'Place', h('input', { name: 'place', maxlength: 150, value: e?.place ?? '' }))),
-      h('label', null, 'Description ', h('span', { class: 'optional' }, '(shown on the sign-up page)'), h('textarea', { name: 'description', rows: 3, maxlength: 600, value: e?.description ?? '' })),
+        h('label', null, 'Place', h('input', { name: 'place', maxlength: 150, value: data?.place ?? '' }))),
+      h('label', null, 'Description ', h('span', { class: 'optional' }, '(shown on the sign-up page)'), h('textarea', { name: 'description', rows: 3, maxlength: 600, value: data?.description ?? '' })),
       e && h('p', { class: 'muted small' }, 'The event link and QR codes never change, so printed codes keep working.'),
       h('p', { class: 'error', role: 'alert' }),
       h('div', { class: 'row' }, h('button', { class: 'btn primary', type: 'submit' }, e ? 'Save' : 'Create and get QR codes'), h('button', { class: 'btn', type: 'button', onclick: close }, 'Cancel')));
+    let saving = false;
     form.addEventListener('submit', async ev => {
       ev.preventDefault();
+      if (saving) return;
       const f = form.elements;
       const body = { program: f.program.value, title: f.title.value, startsAt: f.startsAt.value, teacher: f.teacher.value, place: f.place.value, description: f.description.value };
+      saving = true;
+      const submit = form.querySelector('button[type=submit]');
+      submit.disabled = true;
       try {
         const saved = await api(e ? 'api/events/' + e.id : 'api/events', { method: e ? 'PATCH' : 'POST', body });
+        if (draft) clearFlyerDraft(draftRaw);
         close();
         if (e) route(); else location.hash = '#event/' + saved.id;
       } catch (err) { fieldError(form, err); }
+      finally { saving = false; submit.disabled = false; }
     });
     return form;
   };
@@ -416,8 +427,53 @@ function signedOut() {
   document.getElementById('signin').hidden = false;
 }
 
+const flyerDraftKey = 'aol-flyer-event-draft';
+let flyerDraft = null;
+function updateFlyerDraft(open = false) {
+  const bar = document.getElementById('flyerDraft');
+  const error = document.getElementById('flyerDraftError');
+  const review = document.getElementById('reviewFlyerDraft');
+  flyerDraft = null;
+  error.textContent = '';
+  try {
+    const raw = sessionStorage.getItem(flyerDraftKey);
+    if (!raw) { bar.hidden = true; return; }
+    bar.hidden = false;
+    const data = JSON.parse(raw);
+    if (!data || !['title', 'startsAt', 'place', 'description'].every(key => typeof data[key] === 'string') ||
+        (data.program != null && typeof data.program !== 'string')) {
+      throw new Error('Invalid event draft.');
+    }
+    flyerDraft = { raw, data };
+    document.getElementById('flyerDraftMessage').textContent = `Flyer event draft: ${data.title}. Review the first date and details before creating it.`;
+    review.hidden = false;
+    if (open && me && !dialog.open) showDialog(eventForm(null, data, raw));
+  } catch {
+    bar.hidden = false;
+    document.getElementById('flyerDraftMessage').textContent = 'Could not read the flyer event draft.';
+    review.hidden = true;
+    error.textContent = 'Dismiss the draft and try again from Flyer Studio.';
+  }
+}
+function clearFlyerDraft(raw) {
+  try {
+    if (sessionStorage.getItem(flyerDraftKey) === raw) sessionStorage.removeItem(flyerDraftKey);
+    updateFlyerDraft();
+  } catch {
+    document.getElementById('flyerDraftError').textContent = 'The event was created, but the draft could not be cleared. Dismiss it before creating another.';
+  }
+}
+document.getElementById('reviewFlyerDraft').addEventListener('click', () => {
+  if (flyerDraft) showDialog(eventForm(null, flyerDraft.data, flyerDraft.raw));
+});
+document.getElementById('dismissFlyerDraft').addEventListener('click', () => {
+  try { sessionStorage.removeItem(flyerDraftKey); updateFlyerDraft(); }
+  catch { document.getElementById('flyerDraftError').textContent = 'Could not dismiss the draft. Check browser storage and try again.'; }
+});
+window.addEventListener('storage', e => { if (e.key === flyerDraftKey) updateFlyerDraft(true); });
+
 window.addEventListener('hashchange', route);
-setupSignIn({
+const signIn = setupSignIn({
   form: document.getElementById('signinForm'),
   error: document.getElementById('signinError'),
   signOut: document.getElementById('signOut'),
@@ -431,6 +487,37 @@ setupSignIn({
     role.textContent = me.role === 'manager' ? 'Manager' : 'Volunteer';
     role.className = me.role === 'manager' ? 'badge accent' : 'badge';
     route();
+    updateFlyerDraft(true);
   },
   onSignedOut: signedOut,
 });
+
+async function setupDemoRoles() {
+  const response = await fetch('api/demo', { cache: 'no-store' });
+  if (!response.ok) throw new Error('Could not load demo sign-in.');
+  const demo = await response.json();
+  if (!demo.enabled) return;
+  const bar = document.getElementById('demoRoles');
+  const error = document.getElementById('demoError');
+  bar.hidden = false;
+  bar.querySelectorAll('[data-demo-role]').forEach(button => {
+    button.addEventListener('click', async () => {
+      error.textContent = '';
+      const buttons = bar.querySelectorAll('button');
+      buttons.forEach(b => { b.disabled = true; });
+      const role = button.dataset.demoRole;
+      try {
+        if (!(await signIn(demo.roles[role], button.dataset.demoName))) {
+          error.textContent = 'Demo sign-in was not accepted. Reload the page and try again.';
+        }
+      } catch {
+        session.clear();
+        signedOut();
+        error.textContent = 'Could not reach the server. Try again.';
+      } finally {
+        buttons.forEach(b => { b.disabled = false; });
+      }
+    });
+  });
+}
+setupDemoRoles().catch(e => console.error(e));

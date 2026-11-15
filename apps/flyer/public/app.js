@@ -2,6 +2,78 @@
   const $ = id => document.getElementById(id);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const state = { cfg: null, job: null, survey: null, city: null, baseJob: null, baseSurvey: null, busy: false, adminToken: sessionStorage.getItem('adminToken') || '' };
+  let formVersion = 0;
+  let localIssue = false;
+  const fieldErrors = new Map();
+
+  function clearFieldError(control) {
+    const entry = fieldErrors.get(control);
+    if (!entry) return;
+    entry.message.remove();
+    if (entry.describedBy === null) control.removeAttribute('aria-describedby');
+    else control.setAttribute('aria-describedby', entry.describedBy);
+    control.removeAttribute('aria-invalid');
+    fieldErrors.delete(control);
+  }
+  function clearFieldErrors() {
+    for (const control of fieldErrors.keys()) clearFieldError(control);
+  }
+  function answersChanged(control) {
+    formVersion++;
+    if (control) clearFieldError(control);
+    if (control?.classList.contains('s-end') && !control.value) {
+      const row = control.closest('.row');
+      clearFieldError(row.querySelector('.s-date'));
+      clearFieldError(row.querySelector('.s-start'));
+    }
+    $('addEventError').textContent = '';
+    if (localIssue && !state.busy) {
+      $('status').textContent = 'Answers changed. Select Make my flyer to check them again.';
+    } else if (state.job?.status === 'NEEDS_INPUT' && !state.busy && $('questions').children.length) {
+      $('status').textContent = 'Answers changed. Select Make my flyer to check them again. The questions below are from the last check.';
+    }
+  }
+
+  function questionTarget(field) {
+    const direct = {
+      'offering.raw_text': 'offer', 'offering.approved_description': 'approved',
+      'schedule.timezone': 'tz', 'location.city': 'city', 'location.venue': 'venue',
+      'location.delivery_mode': 'mode', 'action.destination_url': 'url',
+      'format': 'format', 'imagery.include_gurudev': 'gurudev',
+      'imagery.city_photo_asset_id': 'cityFile', 'assets.logo': 'opBtn',
+    };
+    if (direct[field]) return field === 'location.delivery_mode' ? document.querySelector('#mode input:checked') : $(direct[field]);
+    if (field === 'schedule.sessions') return document.querySelector('#sessions .s-date') || $('addSession');
+    if (field === 'contacts') return document.querySelector('#contacts .c-phone') || $('addContact');
+    let m = /^schedule\.sessions\[(\d+)\]\.(date|start_time|end_time)$/.exec(field);
+    if (m) {
+      const rows = [...document.querySelectorAll('#sessions .row')].filter(row => row.querySelector('.s-date').value || row.querySelector('.s-start').value);
+      return rows[Number(m[1])]?.querySelector({ date: '.s-date', start_time: '.s-start', end_time: '.s-end' }[m[2]]);
+    }
+    m = /^contacts\[(\d+)\]\.(email|phone)$/.exec(field);
+    if (m) {
+      const rows = [...document.querySelectorAll('#contacts .row')].filter(row => [...row.querySelectorAll('input')].some(input => input.value.trim()));
+      return rows[Number(m[1])]?.querySelector('.c-' + m[2]);
+    }
+    return null;
+  }
+
+  function showFieldError(control, text) {
+    if (!control) return;
+    let entry = fieldErrors.get(control);
+    if (!entry) {
+      const message = document.createElement('span');
+      message.className = 'field-error';
+      message.id = 'field-error-' + (document.querySelectorAll('.field-error').length + 1);
+      const label = control.closest('label');
+      if (label) label.append(message); else control.insertAdjacentElement('afterend', message);
+      entry = { message, describedBy: control.getAttribute('aria-describedby') };
+      fieldErrors.set(control, entry);
+      control.setAttribute('aria-describedby', [entry.describedBy, message.id].filter(Boolean).join(' '));
+      if (control.matches('input, select, textarea')) control.setAttribute('aria-invalid', 'true');
+    }
+    entry.message.textContent += (entry.message.textContent ? ' ' : '') + text;
+  }
 
   async function api(path, opt = {}) {
     const headers = { 'Content-Type': 'application/json' }; if (state.adminToken) headers['x-admin-token'] = state.adminToken;
@@ -14,12 +86,12 @@
   function addSession(v = {}) {
     const d = document.createElement('div'); d.className = 'row';
     d.innerHTML = `<label>Date<input type="date" class="s-date" value="${esc(v.date || '')}"></label><label>Starts<input type="time" class="s-start" value="${esc(v.start_time || '')}"></label><label>Ends (optional)<input type="time" class="s-end" value="${esc(v.end_time || '')}"></label><button class="x" type="button" aria-label="Remove this date">×</button>`;
-    d.querySelector('.x').onclick = () => d.remove(); $('sessions').appendChild(d);
+    d.querySelector('.x').onclick = () => { d.remove(); answersChanged(); }; $('sessions').appendChild(d);
   }
   function addContact(v = {}) {
     const d = document.createElement('div'); d.className = 'row c';
     d.innerHTML = `<label>Name<input type="text" class="c-name" value="${esc(v.name || '')}"></label><label>Phone<input type="tel" class="c-phone" value="${esc(v.phone || '')}"></label><label>Email<input type="email" class="c-email" value="${esc(v.email || '')}"></label><button class="x" type="button" aria-label="Remove this contact">×</button>`;
-    d.querySelector('.x').onclick = () => d.remove(); $('contacts').appendChild(d);
+    d.querySelector('.x').onclick = () => { d.remove(); answersChanged(); }; $('contacts').appendChild(d);
   }
   function collectSurvey() {
     const moods = [...document.querySelectorAll('#moods input:checked')].map(i => i.value), other = $('moodOther').value.trim(); if (other) moods.push(other);
@@ -36,8 +108,48 @@
       format: $('format').value, extra_notes: $('notes').value, revision: { base_artifact_id: null, requested_changes: [], locked_elements: [] }
     };
   }
+  function addToEvents() {
+    const error = $('addEventError');
+    error.textContent = '';
+    const survey = collectSurvey();
+    const lines = survey.offering.raw_text.split('\n').map(line => line.trim()).filter(Boolean);
+    const first = survey.schedule.sessions[0];
+    if (!lines.length || !first?.date || !first.start_time) {
+      clearFieldErrors();
+      const missing = [];
+      if (!lines.length) missing.push([$('offer'), 'Enter a course or event name.']);
+      if (!first?.date) missing.push([document.querySelector('#sessions .s-date') || $('addSession'), 'Enter the first date.']);
+      if (!first?.start_time) missing.push([document.querySelector('#sessions .s-start') || $('addSession'), 'Enter the first start time.']);
+      missing.forEach(([control, message]) => showFieldError(control, message));
+      error.textContent = 'Enter a course or event name and the first date and start time.';
+      missing[0][0].focus();
+      return;
+    }
+    const draft = {
+      title: lines[0],
+      program: $('eventType').value || null,
+      startsAt: first.date + 'T' + first.start_time,
+      place: [survey.location.venue, survey.location.address, survey.location.city].map(s => s.trim()).filter(Boolean).join(', '),
+      description: [lines.slice(1).join('\n'), survey.offering.approved_description?.trim()].filter(Boolean).join('\n\n'),
+    };
+    try {
+      if (sessionStorage.getItem('aol-flyer-event-draft') && !confirm('Replace the existing flyer event draft?')) return;
+      sessionStorage.setItem('aol-flyer-event-draft', JSON.stringify(draft));
+      if (window.parent !== window) window.parent.location.hash = '#people';
+      else location.href = '/care/';
+    } catch {
+      error.textContent = 'Could not open the event draft. Check browser storage and try again.';
+    }
+  }
+  function matchEventType() {
+    const firstLine = $('offer').value.split('\n').map(line => line.trim()).find(Boolean);
+    $('eventType').value = [...$('eventType').options].find(option => option.value && option.value.toLowerCase() === firstLine?.toLowerCase())?.value || '';
+    $('eventType').dataset.previous = $('eventType').value;
+  }
   function fillSurvey(f) {
+    clearFieldErrors(); answersChanged();
     $('offer').value = (f.offering && f.offering.raw_text) || ''; $('approved').value = (f.offering && f.offering.approved_description) || '';
+    matchEventType();
     document.querySelectorAll('#moods input').forEach(i => { i.checked = !!(f.mood && f.mood.selected || []).includes(i.value); });
     $('gurudev').checked = !!(f.imagery && f.imagery.include_gurudev);
     $('tz').value = (f.schedule && f.schedule.timezone) || ''; $('sessions').innerHTML = ''; ((f.schedule && f.schedule.sessions) || [{}]).forEach(addSession);
@@ -62,6 +174,7 @@
       state.city = { asset_id: up.asset_id, width: up.width, height: up.height, sharpness: sharpness(img) };
       $('cityInfo').innerHTML = `<img src="${esc(up.url)}" alt="Uploaded city photo"><span>${up.width} × ${up.height} px. Sharpness score ${state.city.sharpness} (blurry photos are flagged, never repaired).</span>`;
     } catch (err) { state.city = null; $('cityInfo').innerHTML = `<span style="color:var(--bad)">${esc(err.message)}</span>`; }
+    finally { answersChanged($('cityFile')); }
   }
 
   // ---------- proof panel ----------
@@ -85,8 +198,14 @@
     const title = { READY: 'Ready', NEEDS_INPUT: 'A few details are needed', DRAFT_PREVIEW: 'Demo draft preview', NEEDS_REVIEW: r.workflow.awaiting ? 'Waiting for your review' : 'Needs changes', APPROVED_FOR_RENDER: 'Approved for render', PLANNING: 'Planning', ERROR: 'Something went wrong' }[r.status] || r.status;
     $('status').className = 'status ' + cls; $('status').innerHTML = `<strong>${esc(title)}</strong>${esc(r.message)} ${esc(r.next_action)}`;
     document.querySelectorAll('.card.flag').forEach(c => c.classList.remove('flag'));
-    $('questions').innerHTML = r.questions.length ? r.questions.map(q => { const sec = FIELD_SECTION(q.field); if (sec !== 'op') $(sec) && $(sec).classList.add('flag'); return `<div class="q"><b>${esc(q.question)}</b><span class="muted">${esc(q.reason)}</span><br><a href="${sec === 'op' ? '#' : '#' + sec}" ${sec === 'op' ? 'data-op="1"' : ''}>${sec === 'op' ? 'Open the operator panel' : 'Go to this question'}</a></div>`; }).join('') : '';
+    clearFieldErrors();
+    const targets = r.questions.map(q => questionTarget(q.field));
+    $('questions').innerHTML = r.questions.length ? '<p class="muted">From the last check. Update your answers, then select Make my flyer again.</p>' + r.questions.map((q, i) => { const sec = FIELD_SECTION(q.field); if (sec !== 'op') { $(sec)?.classList.add('flag'); showFieldError(targets[i], q.question); } return `<div class="q"><b>${esc(q.question)}</b><span class="muted">${esc(q.reason)}</span><br><a href="${sec === 'op' ? '#' : '#' + sec}" data-question="${i}" ${sec === 'op' ? 'data-op="1"' : ''}>${sec === 'op' ? 'Open the operator panel' : 'Go to this question'}</a></div>`; }).join('') : '';
     $('questions').querySelectorAll('[data-op]').forEach(a => a.onclick = e => { e.preventDefault(); openOperator(); });
+    $('questions').querySelectorAll('[data-question]:not([data-op])').forEach(a => a.onclick = e => {
+      const target = targets[Number(a.dataset.question)];
+      if (target?.isConnected) { e.preventDefault(); target.focus(); }
+    });
     const iss = r.issues.filter(i => i.severity !== 'BLOCKER' || !r.questions.length);
     $('issues').innerHTML = iss.length ? `<details class="evidence"><summary>Notes and issues (${iss.length})</summary><ul class="list ev">${iss.map(i => `<li><span><span class="chipx ${i.severity === 'NOTE' ? 'NOT_APPLICABLE' : i.severity === 'BLOCKER' ? 'FAIL' : 'UNVERIFIED'}">${esc(i.severity)}</span>${esc(i.problem)}</span><span class="meth">${esc(i.owner)}. ${esc(i.required_fix)}</span></li>`).join('')}</ul></details>` : '';
     const checks = [['Plan', r.pre_render_review.checks], ['Final artifact', r.final_review.checks]].filter(x => x[1].length);
@@ -119,7 +238,7 @@
       try { show(await api(`api/jobs/${r.job_id}/review`, { method: 'POST', body: { reviewer: $('rvName').value, mobile_viewed: true, items, scores } })); } catch (e) { $('revErr').textContent = ' ' + e.message; }
     };
   }
-  function resetProof() { $('questions').innerHTML = ''; $('result').innerHTML = ''; $('reviewBox').innerHTML = ''; $('issues').innerHTML = ''; $('evidence').classList.add('hide'); $('status').className = 'status'; $('status').textContent = ''; setGates({}); }
+  function resetProof() { localIssue = false; clearFieldErrors(); document.querySelectorAll('.card.flag').forEach(c => c.classList.remove('flag')); $('questions').innerHTML = ''; $('result').innerHTML = ''; $('reviewBox').innerHTML = ''; $('issues').innerHTML = ''; $('evidence').classList.add('hide'); $('status').className = 'status'; $('status').textContent = ''; setGates({}); }
   function showCanvas() { $('sheetEmpty').classList.add('hide'); $('prevImg').classList.add('hide'); $('cv').classList.remove('hide'); $('viewbar').classList.remove('hide'); }
   function showImage(url) { $('sheetEmpty').classList.add('hide'); $('cv').classList.add('hide'); $('prevImg').src = url; $('prevImg').classList.remove('hide'); $('viewbar').classList.remove('hide'); }
   function setBusy(msg) { state.busy = !!msg; $('makeBtn').disabled = !!msg; $('busy').classList.toggle('hide', !msg); $('busy').textContent = msg || ''; }
@@ -129,10 +248,23 @@
   async function run() {
     if (state.busy) return; resetProof(); setBusy('Checking your answers…'); setGates({ brief: 'run' });
     try {
-      const survey = collectSurvey();
+      const incomplete = [...document.querySelectorAll('#sessions .row')].filter(row => !row.querySelector('.s-date').value && !row.querySelector('.s-start').value && row.querySelector('.s-end').value);
+      if (incomplete.length) {
+        localIssue = true;
+        incomplete.forEach(row => {
+          showFieldError(row.querySelector('.s-date'), 'Enter a date, or clear the end time.');
+          showFieldError(row.querySelector('.s-start'), 'Enter a start time, or clear the end time.');
+        });
+        $('status').className = 'status bad';
+        $('status').textContent = 'Complete each date and start time, or clear its end time.';
+        setGates({ brief: 'bad' }); setBusy(null); incomplete[0].querySelector('.s-date').focus(); return;
+      }
+      const survey = collectSurvey(), checkedVersion = formVersion;
       if (state.baseJob) { survey.revision = { base_artifact_id: state.baseJob, requested_changes: ['Edited fields: ' + changedSections(state.baseSurvey, survey).join(', ')], locked_elements: lockedIds(state.baseSurvey, survey, (state.job && state.job.approved_copy && state.job.approved_copy.blocks) || []) }; }
-      state.survey = survey; let r = await api('api/jobs', { method: 'POST', body: survey }); show(r);
-      if (r.status === 'NEEDS_INPUT') { const q = $('questions'); q.scrollIntoView({ block: 'nearest' }); setBusy(null); return; }
+      state.survey = survey; let r = await api('api/jobs', { method: 'POST', body: survey });
+      if (formVersion !== checkedVersion) { $('status').className = 'status wait'; $('status').textContent = 'Answers changed while checking. Select Make my flyer to check them again.'; setBusy(null); return; }
+      show(r);
+      if (r.status === 'NEEDS_INPUT') { const first = r.questions.map(q => questionTarget(q.field)).find(target => target && target !== $('opBtn')); if (first) first.focus(); else $('questions').scrollIntoView({ block: 'nearest' }); setBusy(null); return; }
       if (r.status !== 'PLANNING') { setBusy(null); return; }
       setBusy('Measuring text and fitting the layout…'); setGates({ ...gateStates(r), gateA: 'run' });
       const inp = r.workflow.layout_inputs, imgs = {}; for (const role of ['logo', 'portrait', 'city']) if (inp.assets[role]) imgs[role] = await loadImg(inp.assets[role].url);
@@ -183,11 +315,39 @@
     $('profilePill').textContent = demo ? 'Demo profile' : 'Production profile'; $('profilePill').className = 'pill' + (demo ? ' demo' : ''); $('demoBar').classList.toggle('hide', !demo);
     $('format').innerHTML = c.allowed_formats.map(f => `<option value="${f}">${f === '3:4' ? 'Portrait 3:4 (1080 × 1440)' : 'Portrait 4:5 (1080 × 1350)'}</option>`).join(''); $('format').value = c.default_format;
   }
+  async function loadEventTypes() {
+    try {
+      const { eventPrograms } = await import('/care/shared/catalog.js');
+      const select = $('eventType');
+      select.replaceChildren(new Option('Choose a type', ''), ...eventPrograms.map(program => new Option(program, program)));
+      select.disabled = false;
+      matchEventType();
+      select.addEventListener('change', () => {
+        const lines = $('offer').value.split('\n');
+        const previous = select.dataset.previous || '';
+        if (select.value && select.value !== 'Other' && (!lines[0].trim() || lines[0].trim() === previous)) {
+          lines[0] = select.value;
+          $('offer').value = lines.join('\n');
+          clearFieldError($('offer'));
+        }
+        select.dataset.previous = select.value;
+      });
+    } catch {
+      $('eventTypeError').textContent = 'Could not load event types. Refresh the page to try again.';
+    }
+  }
   async function init() {
     await loadConfig(); addSession(); addContact();
-    $('addSession').onclick = () => document.querySelectorAll('#sessions .row').length < 6 && addSession(); $('addContact').onclick = () => document.querySelectorAll('#contacts .row').length < 3 && addContact();
+    const hasPeopleApp = location.pathname.startsWith('/flyer/');
+    $('addEventBtn').hidden = !hasPeopleApp; $('addEventHint').hidden = !hasPeopleApp;
+    $('eventTypeField').hidden = !hasPeopleApp;
+    if (hasPeopleApp) loadEventTypes();
+    $('form').addEventListener('input', e => answersChanged(e.target));
+    $('form').addEventListener('change', e => answersChanged(e.target));
+    $('addSession').onclick = () => { if (document.querySelectorAll('#sessions .row').length < 6) { addSession(); answersChanged(); } };
+    $('addContact').onclick = () => { if (document.querySelectorAll('#contacts .row').length < 3) { addContact(); answersChanged(); } };
     $('cityOn').onchange = () => $('cityBox').classList.toggle('hide', !$('cityOn').checked); $('cityFile').onchange = onCityFile;
-    $('makeBtn').onclick = run; $('fixtureBtn').onclick = () => fillSurvey(state.cfg.demo_fixture); $('opBtn').onclick = openOperator; $('opClose').onclick = () => $('opDlg').close(); $('historyBtn').onclick = openHistory; $('histClose').onclick = () => $('histDlg').close();
+    $('makeBtn').onclick = run; $('addEventBtn').onclick = addToEvents; $('fixtureBtn').onclick = () => fillSurvey(state.cfg.demo_fixture); $('opBtn').onclick = openOperator; $('opClose').onclick = () => $('opDlg').close(); $('historyBtn').onclick = openHistory; $('histClose').onclick = () => $('histDlg').close();
     $('reviseCancel').onclick = () => { state.baseJob = null; state.baseSurvey = null; $('reviseBar').classList.add('hide'); };
     document.querySelectorAll('#viewbar [data-view]').forEach(b => b.onclick = () => { document.querySelectorAll('#viewbar [data-view]').forEach(x => x.classList.toggle('on', x === b)); $('sheet').classList.toggle('phone', b.dataset.view === 'phone'); });
     window.__studio = { state, collectSurvey, fillSurvey, run };

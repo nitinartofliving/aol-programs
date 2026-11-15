@@ -39,6 +39,10 @@
 
     <section id="sA" class="card" data-section="A">
       <h2><b>A</b>What is the flyer for?</h2>
+      <label id="eventTypeField" class="fld" hidden><span>Course or event type</span>
+        <select id="eventType" disabled><option value="">Loading types…</option></select>
+        <small>Choose a type or Other. You can edit the flyer title below.</small>
+        <span id="eventTypeError" role="alert"></span></label>
       <label class="fld"><span>Course or event</span>
         <textarea id="offer" rows="3" placeholder="Course name on the first line"></textarea>
         <small>The first line becomes the title. Extra lines are used as the description.</small></label>
@@ -85,7 +89,7 @@
           <option value="America/Toronto">Toronto</option><option value="America/Winnipeg">Winnipeg</option><option value="America/Regina">Regina</option>
           <option value="America/Edmonton">Edmonton</option><option value="America/Vancouver">Vancouver</option>
         </select></label>
-      <small>Each day keeps its own start time. An end time is optional and is never guessed.</small>
+      <small>Enter a date and start time for each day. An end time is optional and is never guessed.</small>
     </section>
 
     <section id="sL" class="card" data-section="L">
@@ -125,7 +129,13 @@
         <small>Notes are recorded but never printed, and they cannot change production rules.</small></label>
     </section>
 
-    <div class="actions"><button class="btn primary big" id="makeBtn" type="button">Make my flyer</button><span id="busy" class="busy hide" role="status"></span></div>
+    <div class="actions">
+      <button class="btn primary big" id="makeBtn" type="button">Make my flyer</button>
+      <button class="btn big" id="addEventBtn" type="button" hidden>Add to events</button>
+      <span id="busy" class="busy hide" role="status"></span>
+    </div>
+    <small id="addEventHint" hidden>To add an event, the current form's first date and details will be copied for review.</small>
+    <p id="addEventError" class="event-error" role="alert"></p>
   </main>
 
   <aside class="proof" aria-label="Proof">

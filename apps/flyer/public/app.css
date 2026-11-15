@@ -33,8 +33,11 @@ body{margin:0;background:var(--bench);color:var(--ink);font:16px/1.5 var(--sans)
 .card h2 b{display:inline-grid;place-items:center;min-width:28px;height:28px;border:1.5px solid var(--ink);border-radius:50%;font:600 14px var(--sans)}
 .card.flag{border-color:var(--bad);box-shadow:0 0 0 3px var(--bad-bg)}
 .fld{display:grid;gap:5px}.fld>span{font-weight:600;font-size:15px}.fld em{font-weight:400;color:var(--mute)}
+.fld[hidden]{display:none}#eventTypeError{color:var(--bad)}
 .fld.inline{grid-template-columns:auto 1fr;align-items:center;gap:10px}.fld.inline>span{white-space:nowrap}
 input[type=text],input[type=url],input[type=email],input[type=tel],input[type=date],input[type=time],input[type=file],select,textarea{font:inherit;width:100%;padding:9px 11px;border:1.5px solid #9eab9c;border-radius:8px;background:#fff;color:var(--ink)}
+input[aria-invalid=true],select[aria-invalid=true],textarea[aria-invalid=true]{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad)}
+.field-error{display:block;color:var(--bad);font-size:13.5px;font-weight:600;line-height:1.4}
 textarea{resize:vertical}
 small,.muted{color:var(--mute);font-size:13.5px;line-height:1.45}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -55,7 +58,8 @@ small,.muted{color:var(--mute);font-size:13.5px;line-height:1.45}
 .row label{display:grid;gap:3px;font-size:13px;font-weight:600}.row .x{border:0;background:transparent;font-size:20px;cursor:pointer;color:var(--mute);padding:6px 10px}
 .photo-info{display:flex;gap:12px;align-items:center;margin-top:6px}.photo-info img{width:96px;height:72px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
 .demobar{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--warn-bg);color:#4a2a05;border:1px solid #e3c08f;border-radius:10px;padding:10px 14px;font-size:14.5px}
-.actions{display:flex;gap:16px;align-items:center;padding-bottom:40px}.busy{color:var(--mute);font-weight:600}
+.actions{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.busy{color:var(--mute);font-weight:600}
+.event-error{color:var(--bad);padding-bottom:40px}
 .proof{position:sticky;top:12px;display:grid;gap:14px;max-height:calc(100vh - 24px);overflow:auto;padding:4px 6px 20px 4px}
 .gates{list-style:none;display:flex;justify-content:space-between;margin:0;padding:0;position:relative}
 .gates::before{content:"";position:absolute;left:14px;right:14px;top:11px;height:2px;background:var(--line)}

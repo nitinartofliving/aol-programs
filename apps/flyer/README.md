@@ -23,6 +23,8 @@ A demo flyer is labelled "DESIGN SAMPLE · FICTIONAL EVENT", uses example.org co
 5. **Checks on the exported PNG.** Dimensions, text ledger against the draw log, contrast measured on pixels, margin scan, QR decoded from the final image, asset fidelity.
 6. **Human review and Gate B.** A reviewer ticks the items automatic checks cannot judge and scores eight dimensions. Release needs 4 or more on every one. **Download is blocked until the status is READY.**
 
+When the brief needs changes, the relevant fields show the check's questions inline. Update the answers and select **Make my flyer** again to recheck them.
+
 ## Production setup (real flyers)
 
 Open **Operator** in the top bar (allowed from this computer, or with `ADMIN_TOKEN` when hosted).

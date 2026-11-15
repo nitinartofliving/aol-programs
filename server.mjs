@@ -125,6 +125,6 @@ server.listen(port, host, () => {
   const shown = host === '0.0.0.0' ? 'localhost' : host;
   console.log(`AOL Programs running at http://${shown}:${port}`);
   console.log('  Staff dashboard: ' + (env.AOL_MANAGER_TOKEN || env.AOL_REPORT_TOKEN ? 'enabled' : 'disabled (set AOL_MANAGER_TOKEN in .env)'));
-  console.log('  People & SevaAssist: ' + (env.AOL_MANAGER_TOKEN || env.AOL_VOLUNTEER_TOKEN ? 'enabled' : 'sign-in disabled (set AOL_MANAGER_TOKEN or AOL_VOLUNTEER_TOKEN in .env)'));
+  console.log('  People & SevaAssist: ' + (env.AOL_CARE_DEMO === '1' ? 'demo mode (temporary data)' : env.AOL_MANAGER_TOKEN || env.AOL_VOLUNTEER_TOKEN ? 'enabled' : 'sign-in disabled (set AOL_MANAGER_TOKEN or AOL_VOLUNTEER_TOKEN in .env)'));
 });
 for (const sig of ['SIGINT', 'SIGTERM']) process.once(sig, () => { server.close(); surveyApi.emit('close'); care.close(); process.exit(0); });

@@ -1,3 +1,5 @@
+.demo-roles { padding: 10px 16px; background: var(--accent-soft); border-bottom: 1px solid var(--line); }
+.demo-roles .error:not(:empty) { margin-top: 6px; }
 .subnav {
   position: sticky; top: 0; z-index: 2;
   display: flex; align-items: stretch; justify-content: space-between; gap: 12px;

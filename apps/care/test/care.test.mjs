@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import { findAnswer, similarity } from '../match.mjs';
 import { createCareApp, qrSvg } from '../server.mjs';
@@ -83,6 +86,48 @@ test('staff API needs a token; managers alone can delete', async () => {
     assert.equal((await s.call('DELETE', '/care/api/people/' + p.body.id, undefined, manager)).status, 200);
     assert.equal((await s.call('GET', '/care/api/people/' + p.body.id)).status, 404);
   } finally { s.close(); }
+});
+
+test('demo roles use isolated temporary data and preserve role permissions', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'aol-care-demo-'));
+  const dbPath = join(dir, 'care.sqlite');
+  try {
+    const normal = await start({ AOL_CARE_DB_PATH: dbPath });
+    try {
+      assert.deepEqual((await normal.call('GET', '/care/api/demo', undefined, null)).body, { enabled: false });
+      assert.equal((await normal.call('POST', '/care/api/people', { fullName: 'Existing Person' })).status, 201);
+    } finally { normal.close(); }
+
+    const demo = await start({ AOL_CARE_DEMO: '1', AOL_CARE_DB_PATH: dbPath });
+    try {
+      const { enabled, roles } = (await demo.call('GET', '/care/api/demo', undefined, null)).body;
+      assert.equal(enabled, true);
+      assert.notEqual(roles.manager, roles.volunteer);
+      assert.equal((await demo.call('GET', '/care/api/me', undefined, manager)).status, 401);
+      assert.equal((await demo.call('GET', '/care/api/me', undefined, roles.manager)).body.role, 'manager');
+      assert.equal((await demo.call('GET', '/care/api/me', undefined, roles.volunteer)).body.role, 'volunteer');
+      assert.deepEqual((await demo.call('GET', '/care/api/people', undefined, roles.volunteer)).body, []);
+      const person = (await demo.call('POST', '/care/api/people', { fullName: 'Demo Person' }, roles.volunteer)).body;
+      assert.equal((await demo.call('DELETE', '/care/api/people/' + person.id, undefined, roles.volunteer)).status, 403);
+      assert.equal((await demo.call('DELETE', '/care/api/people/' + person.id, undefined, roles.manager)).status, 200);
+      await demo.call('POST', '/care/api/people', { fullName: 'Temporary Person' }, roles.manager);
+    } finally { demo.close(); }
+
+    const normalAgain = await start({ AOL_CARE_DB_PATH: dbPath });
+    try {
+      const people = (await normalAgain.call('GET', '/care/api/people')).body;
+      assert.deepEqual(people.map(person => person.fullName), ['Existing Person']);
+    } finally { normalAgain.close(); }
+    const demoAgain = await start({ AOL_CARE_DEMO: '1', AOL_CARE_DB_PATH: dbPath });
+    try {
+      const roles = (await demoAgain.call('GET', '/care/api/demo', undefined, null)).body.roles;
+      assert.deepEqual((await demoAgain.call('GET', '/care/api/people', undefined, roles.manager)).body, []);
+    } finally { demoAgain.close(); }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('demo mode rejects non-loopback hosts', () => {
+  assert.throws(() => createCareApp({ env: { AOL_CARE_DEMO: '1', HOST: '0.0.0.0' } }), /requires a loopback HOST/);
 });
 
 test('journey: steps set the current and next step', async () => {

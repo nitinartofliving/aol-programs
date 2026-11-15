@@ -13,6 +13,8 @@ One web app with several tools, each in its own tab. The home page lets you choo
 
 Public pages opened from event QR codes (no login): `/e/<event>` to register, `/e/<event>/in` to check in at the venue.
 
+In Flyer Studio, choose a course or event type from the People program list, or choose Other. **Add to events** copies that type and the current form's title, first date and start time, location and description into a People event draft. Sign in, review the program and details, and create the event to save it; the flyer image and later dates are not copied.
+
 ## People & Journeys
 
 - **Today:** people to reconnect with, most urgent first: overdue promised check-ins, check-ins due today, new people who just signed up, and people coming to an event in the next 7 days. People without consent or marked "do not contact" never appear.
@@ -36,6 +38,7 @@ npm test           # survey (24), people & SevaAssist (10) and flyer engine chec
 
 Settings live in `.env` (copy `.env.example` to start). `.env` holds secrets, so keep it out of git (it is in `.gitignore`).
 
+- `AOL_CARE_DEMO=1`: enables one-click Manager and Volunteer sign-in in People, including named demo volunteers Rohit, Nitin and Laxmikant. These are shared-role demo identities, not individual accounts. People, events and SevaAssist use a separate in-memory database that is lost on restart; real staff tokens and People data are not used in this mode. Demo mode requires a loopback `HOST` and is not for deployment. The survey and staff dashboard are not isolated by this setting.
 - `AOL_MANAGER_TOKEN`: sign in to the Staff Dashboard with this. It sees everything, including names and comments.
 - `AOL_REPORT_TOKEN`: optional. Sees totals and charts only. Blank disables that role.
 - `AOL_VOLUNTEER_TOKEN`: give this to volunteers and teachers for People and SevaAssist (no deleting).

@@ -63,19 +63,23 @@ export function setupSignIn({ form, error, signOut, meUrl, onSignedIn, onSignedO
       throw e;
     }
   }
+  async function signIn(token, name) {
+    session.save(token, name);
+    return check();
+  }
   form.addEventListener('submit', async ev => {
     ev.preventDefault();
     error.textContent = '';
     const name = nameInput.value.trim();
     if (!name) { error.textContent = 'Enter your name so others can see who is following up.'; return; }
-    session.save(tokenInput.value.trim(), name);
     try {
-      if (!(await check())) error.textContent = 'That token was not accepted. Check it with your manager.';
+      if (!(await signIn(tokenInput.value.trim(), name))) error.textContent = 'That token was not accepted. Check it with your manager.';
       else tokenInput.value = '';
     } catch { error.textContent = 'Could not reach the server. Try again.'; }
   });
   signOut?.addEventListener('click', () => { session.clear(); onSignedOut(); });
   if (session.token) check().catch(() => onSignedOut()); else onSignedOut();
+  return signIn;
 }
 
 export function formatDate(key, opts = { weekday: 'short', month: 'short', day: 'numeric' }) {

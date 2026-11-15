@@ -5,7 +5,7 @@
 //   pub    -> /e/     public event sign-up and venue check-in pages (no login)
 //   ask    -> /ask/   SevaAssist questions (staff token); managers edit answers
 
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -87,16 +87,21 @@ export function todayIn(timeZone, ms = Date.now()) {
 }
 
 export function createCareApp({ env = process.env, now = Date.now, log = console } = {}) {
+  const demo = env.AOL_CARE_DEMO === '1';
+  if (demo && !['127.0.0.1', '::1', 'localhost'].includes(env.HOST || '127.0.0.1')) {
+    throw new Error('AOL_CARE_DEMO requires a loopback HOST.');
+  }
+  const demoTokens = demo ? { manager: randomBytes(32).toString('base64url'), volunteer: randomBytes(32).toString('base64url') } : null;
   const tokens = [];
   for (const [name, role] of [['AOL_MANAGER_TOKEN', 'manager'], ['AOL_VOLUNTEER_TOKEN', 'volunteer']]) {
-    const v = env[name];
+    const v = demoTokens ? demoTokens[role] : env[name];
     if (!v) continue;
     if (!tokenPattern.test(v)) throw new Error(name + ' must have 32 to 128 URL-safe characters.');
     tokens.push({ role, hash: digest(v) });
   }
   const timeZone = env.AOL_TIME_ZONE || 'America/Edmonton';
   const countryCode = (env.AOL_PHONE_COUNTRY_CODE ?? '1').replace(/\D/g, '');
-  const store = openCareStore(env.AOL_CARE_DB_PATH || 'data/care.sqlite');
+  const store = openCareStore(demo ? ':memory:' : env.AOL_CARE_DB_PATH || 'data/care.sqlite');
   const staffRoot = resolve(here, 'public', 'staff');
   const eventRoot = resolve(here, 'public', 'event');
   const askRoot = resolve(here, 'public', 'ask');
@@ -164,6 +169,9 @@ export function createCareApp({ env = process.env, now = Date.now, log = console
       if (method !== 'GET' && method !== 'HEAD') throw new HttpError(405, 'Method not allowed.');
       if (path.startsWith('/shared/')) return serveFile(req, res, sharedRoot, path.slice(8));
       return serveFile(req, res, staffRoot, path === '/' ? 'index.html' : path);
+    }
+    if (method === 'GET' && path === '/api/demo') {
+      return send(res, 200, demoTokens ? { enabled: true, roles: demoTokens } : { enabled: false });
     }
     const me = auth(req);
     const today = todayIn(timeZone, now());
