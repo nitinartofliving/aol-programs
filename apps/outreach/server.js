@@ -5,8 +5,13 @@ const MOCK = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'cities.jso
 const DB_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DB = path.join(DB_DIR, 'leads.json');
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
-const UA = 'aol-outreach-hackathon/1.0 (contact: your-email@example.com)';
-const OVERPASS = process.env.OVERPASS_URL ? [process.env.OVERPASS_URL] : ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+// OpenStreetMap's Overpass servers reject or rate-limit placeholder User-Agents,
+// so identify the app by its project page.
+const UA = process.env.OUTREACH_USER_AGENT || 'AOL-Programs-Outreach/1.0 (+https://github.com/nitinartofliving/aol-programs)';
+const OVERPASS = process.env.OVERPASS_URL ? [process.env.OVERPASS_URL] : ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+const OVERPASS_TIMEOUT_MS = 100000;
+const CACHE_FILE = path.join(DB_DIR, 'places-cache.json');
+const CACHE_FRESH_MS = 7 * 24 * 3600e3;
 const RADIUS = 12000;
 const COORDS = { Toronto: [43.6532, -79.3832, 'ON'], Vancouver: [49.2827, -123.1207, 'BC'], Montreal: [45.5017, -73.5673, 'QC'], Calgary: [51.0447, -114.0719, 'AB'], Edmonton: [53.5461, -113.4938, 'AB'], Ottawa: [45.4215, -75.6972, 'ON'], Winnipeg: [49.8951, -97.1384, 'MB'], Saskatoon: [52.1332, -106.67, 'SK'], Regina: [50.4452, -104.6189, 'SK'], Halifax: [44.6488, -63.5752, 'NS'], Moncton: [46.0878, -64.7782, 'NB'], Fredericton: [45.9636, -66.6431, 'NB'], Victoria: [48.4284, -123.3656, 'BC'], Hamilton: [43.2557, -79.8711, 'ON'], Kitchener: [43.4516, -80.4925, 'ON'], 'Quebec City': [46.8139, -71.208, 'QC'], "St. John's": [47.5615, -52.7126, 'NL'] };
 
@@ -16,16 +21,18 @@ const send = (res, code, b, type = 'application/json') => { res.writeHead(code, 
 const readBody = req => new Promise(r => { let d = ''; req.on('data', c => d += c); req.on('end', () => { try { r(JSON.parse(d || '{}')); } catch { r({}); } }); });
 
 // ---------- Live places via OpenStreetMap Overpass (free, no key) ----------
+// The free Overpass servers are often busy and can take 30-60 s to answer, so
+// ask all of them at once and use the first good answer.
 async function overpassQuery(ql) {
-  let err;
-  for (const url of OVERPASS) {
-    try {
-      const r = await fetch(url, { method: 'POST', body: 'data=' + encodeURIComponent(ql), headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA }, signal: AbortSignal.timeout(30000) });
-      if (!r.ok) throw new Error('Overpass ' + r.status);
-      return (await r.json()).elements || [];
-    } catch (e) { err = e; }
-  }
-  throw err;
+  try {
+    return await Promise.any(OVERPASS.map(async url => {
+      const r = await fetch(url, { method: 'POST', body: 'data=' + encodeURIComponent(ql), headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA }, signal: AbortSignal.timeout(OVERPASS_TIMEOUT_MS) });
+      if (!r.ok) throw new Error('Overpass ' + r.status + ' from ' + new URL(url).host);
+      const j = await r.json();
+      if (j.remark && /runtime error|timed out/i.test(j.remark)) throw new Error('Overpass: ' + j.remark);
+      return j.elements || [];
+    }));
+  } catch (e) { throw new Error((e.errors || [e]).map(x => x.message).join('; ')); }
 }
 function toPlace(e, kind, role) {
   const T = e.tags || {};
@@ -38,19 +45,46 @@ function toPlace(e, kind, role) {
 }
 const richness = p => (p.site ? 1 : 0) + (p.contact.email ? 2 : 0) + (p.contact.phone ? 1 : 0);
 function dedupe(list) { const s = new Set(); return list.filter(p => p.name && !s.has(p.name.toLowerCase()) && s.add(p.name.toLowerCase())); }
-const cache = new Map();
+// Results are saved to disk for 7 days so repeat searches are instant and
+// survive restarts. If the live servers are down, older saved results are
+// used before falling back to mock data.
+const readCache = () => { try { return JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8')); } catch { return {}; } };
+const cache = readCache();
+const saveCache = () => { try { fs.mkdirSync(DB_DIR, { recursive: true }); fs.writeFileSync(CACHE_FILE, JSON.stringify(cache)); } catch (e) { console.error(e.message); } };
+const pending = new Map();
 async function livePlaces(city) {
-  const hit = cache.get(city); if (hit && Date.now() - hit.t < 6 * 3600e3) return hit.v;
-  const [lat, lon] = COORDS[city], a = `(around:${RADIUS},${lat},${lon})`;
-  const [uni, well] = await Promise.all([
-    overpassQuery(`[out:json][timeout:25];(nwr["amenity"="university"]${a};nwr["amenity"="college"]${a};);out center tags 60;`),
-    overpassQuery(`[out:json][timeout:25];(nwr["sport"~"yoga|meditation"]${a};nwr["leisure"="yoga"]${a};nwr["amenity"="meditation_centre"]${a};nwr["leisure"="fitness_centre"]["name"~"yoga|wellness|meditation|mind|zen",i]${a};);out center tags 120;`)
-  ]);
+  const hit = cache[city];
+  if (hit && Date.now() - hit.t < CACHE_FRESH_MS) return { ...hit.v, savedAt: hit.t };
+  if (!pending.has(city)) pending.set(city, fetchPlaces(city).finally(() => pending.delete(city)));
+  try {
+    const v = await pending.get(city);
+    cache[city] = { t: Date.now(), v }; saveCache();
+    return v;
+  } catch (e) {
+    if (hit) { console.error('Live lookup failed, using saved results:', e.message); return { ...hit.v, savedAt: hit.t, stale: true }; }
+    throw e;
+  }
+}
+async function fetchPlaces(city) {
+  // A bounding box is much faster for Overpass than a radius search.
+  const [lat, lon] = COORDS[city], dLat = RADIUS / 111320, dLon = RADIUS / (111320 * Math.cos(lat * Math.PI / 180));
+  const a = `(${(lat - dLat).toFixed(4)},${(lon - dLon).toFixed(4)},${(lat + dLat).toFixed(4)},${(lon + dLon).toFixed(4)})`;
+  // One combined request per server: the free servers allow only ~2 requests at a
+  // time from one address, so separate searches queue up and time out.
+  // Exact tag matches only: a name search across every gym is too slow for them.
+  const elements = await overpassQuery(`[out:json][timeout:90];
+    (nwr["amenity"="university"]${a};nwr["amenity"="college"]${a};)->.u;
+    (nwr["sport"="yoga"]${a};nwr["sport"="meditation"]${a};nwr["leisure"="yoga"]${a};nwr["amenity"="meditation_centre"]${a};)->.w;
+    .u out center tags 60;
+    .w out center tags 120;`);
+  const isCampus = e => e.tags && ['university', 'college'].includes(e.tags.amenity);
+  const uni = elements.filter(isCampus), well = elements.filter(e => !isCampus(e));
   const universities = dedupe(uni.map(e => toPlace(e, e.tags && e.tags.amenity === 'college' ? 'College' : 'University', 'Student Wellness / Health Promotion office'))
     .sort((x, y) => (x.kind === 'University' ? 0 : 1) - (y.kind === 'University' ? 0 : 1) || richness(y) - richness(x))).slice(0, 12);
   const wellness = dedupe(well.map(e => toPlace(e, (e.tags.sport || '').includes('meditation') || e.tags.amenity === 'meditation_centre' ? 'Meditation centre' : 'Yoga / wellness studio', 'Studio owner or community manager'))
     .sort((x, y) => richness(y) - richness(x))).slice(0, 24);
-  const v = { universities, wellness }; cache.set(city, { t: Date.now(), v }); return v;
+  if (!universities.length && !wellness.length) throw new Error('no places found');
+  return { universities, wellness };
 }
 function mockPlaces(city) {
   const m = MOCK[city]; if (!m) return { universities: [], wellness: [] };
@@ -124,7 +158,7 @@ const handler = async (req, res) => {
       const city = sp.get('city'); if (!COORDS[city]) return send(res, 404, { error: 'unknown city' });
       const from = sp.get('from') || '2000-01-01', to = sp.get('to') || '2100-01-01';
       let places, live = true;
-      try { places = await livePlaces(city); if (!places.universities.length && !places.wellness.length) throw new Error('empty'); }
+      try { places = await livePlaces(city); }
       catch (e) { console.error('Live lookup failed:', e.message); places = mockPlaces(city); live = false; }
       const mockEv = ((MOCK[city] || {}).events || []).map(e => ({ ...e, url: gq(e.name + ' ' + city), source: 'Mock data' }));
       const events = [...mockEv, ...genericEvents(city, from, to), ...await ticketmaster(city, from, to)]

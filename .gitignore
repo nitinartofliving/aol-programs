@@ -9,3 +9,4 @@ apps/flyer/uploads/city/*
 .claude/
 *.sqlite-wal
 *.sqlite-shm
+apps/outreach/data/places-cache.json

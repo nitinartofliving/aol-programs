@@ -43,9 +43,9 @@ const plead=(p,city,type,interest)=>({name:(p.contact.name?p.contact.name+" – 
 const plinks=p=>[["Website",p.site],["Map",p.osm]];
 async function findC(i,b){b.textContent="Searching…";const r=await api("api/contact?url="+encodeURIComponent(cards[i].site));if(r.email||r.phone){if(r.email)cards[i].email=r.email;if(r.phone)cards[i].notes="Phone: "+r.phone;$("s"+i).innerHTML+="<br>"+esc(r.email||"")+(r.phone?" · "+esc(r.phone):"");b.remove()}else b.textContent="None found"}
 async function outreach(){
- cards=[];const city=$("city").value;$("out").innerHTML="<p><small>Loading live data for "+esc(city)+"…</small></p>";
+ cards=[];const city=$("city").value;$("out").innerHTML="<p><small>Loading live data for "+esc(city)+" from OpenStreetMap… The free map servers are slow, so the first search for a city can take a minute or two. After that it's instant.</small></p>";
  const d=await api(`api/outreach?city=${encodeURIComponent(city)}&from=${$("from").value}&to=${$("to").value}`);
- let h=d.live?"":"<p><small>Live lookup unavailable, showing mock data.</small></p>";
+ let h=!d.live?"<p><small>Live lookup unavailable right now (the free OpenStreetMap servers are busy), so this is mock data. Try again in a few minutes.</small></p>":d.stale?"<p><small>The live servers are busy, so these are saved results from "+esc(new Date(d.savedAt).toLocaleDateString())+".</small></p>":"";
  h+="<h2>Events to take part in</h2><div class='grid'>"+(d.events.map(e=>card(e.name,e.type,esc(e.date)+" · "+esc(e.why)+`<br><i>${esc(e.source)}</i>`,{name:e.name,city,type:"Event",role:"Event organizer",interest:"Other"},[["Details",e.url]])).join("")||"<small>No events in this range.</small>")+"</div>";
  h+="<h2>Universities and contact</h2><div class='grid'>"+d.universities.map(p=>card(p.name,p.kind,psub(p),plead(p,city,"University","Stress"),plinks(p))).join("")+"</div>";
  h+="<h2>Wellness clubs and studios</h2><div class='grid'>"+d.wellness.map(p=>card(p.name,p.kind,psub(p),plead(p,city,"Wellness","Learn yoga"),plinks(p))).join("")+"</div>";
