@@ -1,0 +1,10 @@
+.ask { display: flex; flex-direction: column; gap: 16px; }
+.ask-row { display: flex; gap: 8px; align-items: flex-end; }
+.ask-row .grow { flex: 1; }
+@media (max-width: 520px) { .ask-row { flex-direction: column; align-items: stretch; } }
+.answer { border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.answer.none { border-left-color: var(--line); background: var(--sunken); }
+.kb { display: flex; flex-direction: column; gap: 10px; }
+.kb details { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.kb summary { font-weight: 600; cursor: pointer; }
+.kb .body { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }

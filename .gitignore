@@ -1,0 +1,11 @@
+.env
+node_modules/
+/data/
+apps/outreach/data/leads.json
+apps/flyer/data/jobs/*.json
+apps/flyer/data/artifacts/*.png
+apps/flyer/uploads/city/*
+!apps/flyer/uploads/city/.gitkeep
+.claude/
+*.sqlite-wal
+*.sqlite-shm

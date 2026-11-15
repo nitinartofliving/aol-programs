@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Outreach Finder</title>
+<style>
+:root{--bg:#faf7f2;--card:#fff;--tx:#2b2622;--mu:#7a6f64;--ac:#e07a1f;--ac2:#fff1e0;--bd:#eadfce}
+@media(prefers-color-scheme:dark){:root{--bg:#1b1815;--card:#26221e;--tx:#f1ebe3;--mu:#a69a8c;--ac:#f0953f;--ac2:#3a2c1d;--bd:#3a342d}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,sans-serif}
+header,main{max-width:1000px;margin:auto;padding:16px}h1{margin:0;font-size:22px}header p{margin:2px 0;color:var(--mu)}
+.tabs{display:flex;gap:8px;margin-bottom:12px}button,select,input{font:inherit;color:var(--tx)}
+.tabs button,.b{border:1px solid var(--bd);background:var(--card);padding:7px 14px;border-radius:999px;cursor:pointer}
+.tabs .on,.pri{background:var(--ac);color:#fff;border-color:var(--ac)}
+.bar{display:flex;flex-wrap:wrap;gap:12px;align-items:end;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--mu);gap:3px}
+select,input{padding:7px 9px;border:1px solid var(--bd);border-radius:8px;background:var(--bg)}
+h2{font-size:16px;margin:22px 0 8px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:3px}
+.tag{background:var(--ac2);color:var(--ac);border-radius:6px;padding:1px 7px;font-size:11px;width:fit-content}
+small{color:var(--mu)}.row{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.row a,.row button{font-size:12px;border:1px solid var(--bd);background:transparent;padding:4px 9px;border-radius:7px;cursor:pointer;text-decoration:none;color:var(--tx)}
+.row .add{background:var(--ac);color:#fff;border-color:var(--ac)}
+.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:760px;background:var(--card)}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--bd);vertical-align:top;font-size:13px}td input,td select{width:100%;padding:4px 6px}
+.stats span{background:var(--ac2);color:var(--ac);padding:3px 10px;border-radius:8px;margin-right:6px;font-size:13px}.hide{display:none}
+</style></head><body>
+<header><h1>Outreach Finder · Canada</h1><p>Pick a city and dates, then manage every lead in one place.</p></header>
+<main>
+<div class="tabs"><button id="t1" class="on" onclick="tab(1)">1 · Outreach</button><button id="t2" onclick="tab(2)">2 · Leads</button></div>
+<section id="p1"><div class="bar"><label>City<select id="city"></select></label><label>From<input type="date" id="from"></label><label>To<input type="date" id="to"></label></div><div id="out"></div></section>
+<section id="p2" class="hide">
+<div class="bar"><label>Name<input id="nn"></label><label>Email<input id="ne"></label><label>City<input id="nc"></label><button class="b pri" onclick="addManual()">Add lead</button><a class="b" href="api/leads.csv" style="text-decoration:none;color:inherit">Export CSV</a></div>
+<p class="stats" id="stats"></p>
+<div class="scroll"><table><thead><tr><th>Lead</th><th>City</th><th>Interest</th><th>Status</th><th>Follow-up</th><th>Notes</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+</section></main>
+<script>
+const $=id=>document.getElementById(id),INT=["Stress","Anxiety","Depression","OCD","Sleep","Learn yoga","Meditation","Other"],ST=["New","Contacted","Follow-up","Intro talk booked","Joined","Not interested"];
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const api=(u,o)=>fetch(u,o&&{...o,headers:{"Content-Type":"application/json"},body:o.body&&JSON.stringify(o.body)}).then(r=>r.json());
+let cards=[];
+function tab(n){$("p1").classList.toggle("hide",n!=1);$("p2").classList.toggle("hide",n!=2);$("t1").classList.toggle("on",n==1);$("t2").classList.toggle("on",n==2);if(n==2)leads()}
+const card=(t,tag,sub,lead,links)=>{cards.push(lead);const i=cards.length-1;return `<div class="c"><span class="tag">${esc(tag)}</span><b>${esc(t)}</b><small id="s${i}">${sub}</small><div class="row">${(links||[]).filter(l=>l[1]).map(l=>`<a href="${esc(l[1])}" target="_blank" rel="noopener">${esc(l[0])}</a>`).join("")}${lead.site&&!lead.email?`<button onclick="findC(${i},this)">Find contact</button>`:""}<button class="add" onclick="addCard(${i},this)">+ Lead</button></div></div>`};
+const psub=p=>esc(p.address||"")+(p.address?"<br>":"")+esc((p.contact.name?p.contact.name+" · ":"")+p.contact.role)+(p.contact.email?"<br>"+esc(p.contact.email):"")+(p.contact.phone?"<br>"+esc(p.contact.phone):"")+`<br><i>${esc(p.source||"")}</i>`;
+const plead=(p,city,type,interest)=>({name:(p.contact.name?p.contact.name+" – ":"")+p.name,city,type,role:p.contact.role,email:p.contact.email,interest,site:p.site,notes:p.contact.phone?"Phone: "+p.contact.phone:""});
+const plinks=p=>[["Website",p.site],["Map",p.osm]];
+async function findC(i,b){b.textContent="Searching…";const r=await api("api/contact?url="+encodeURIComponent(cards[i].site));if(r.email||r.phone){if(r.email)cards[i].email=r.email;if(r.phone)cards[i].notes="Phone: "+r.phone;$("s"+i).innerHTML+="<br>"+esc(r.email||"")+(r.phone?" · "+esc(r.phone):"");b.remove()}else b.textContent="None found"}
+async function outreach(){
+ cards=[];const city=$("city").value;$("out").innerHTML="<p><small>Loading live data for "+esc(city)+"…</small></p>";
+ const d=await api(`api/outreach?city=${encodeURIComponent(city)}&from=${$("from").value}&to=${$("to").value}`);
+ let h=d.live?"":"<p><small>Live lookup unavailable, showing mock data.</small></p>";
+ h+="<h2>Events to take part in</h2><div class='grid'>"+(d.events.map(e=>card(e.name,e.type,esc(e.date)+" · "+esc(e.why)+`<br><i>${esc(e.source)}</i>`,{name:e.name,city,type:"Event",role:"Event organizer",interest:"Other"},[["Details",e.url]])).join("")||"<small>No events in this range.</small>")+"</div>";
+ h+="<h2>Universities and contact</h2><div class='grid'>"+d.universities.map(p=>card(p.name,p.kind,psub(p),plead(p,city,"University","Stress"),plinks(p))).join("")+"</div>";
+ h+="<h2>Wellness clubs and studios</h2><div class='grid'>"+d.wellness.map(p=>card(p.name,p.kind,psub(p),plead(p,city,"Wellness","Learn yoga"),plinks(p))).join("")+"</div>";
+ h+="<h2>Influencers and hashtags</h2><div class='grid'>"+d.influencers.map(i=>card(i.handle,"Influencer",(i.followers?i.followers.toLocaleString()+" followers · ":"")+esc(i.niche),{name:i.handle,city,type:"Influencer",role:"Creator",interest:"Other"},[["Open",i.url]])).join("")+"</div>";
+ $("out").innerHTML=h}
+async function addCard(i,b){await api("api/leads",{method:"POST",body:cards[i]});b.textContent="Added ✓"}
+async function addManual(){if(!$("nn").value.trim())return;await api("api/leads",{method:"POST",body:{name:$("nn").value,email:$("ne").value,city:$("nc").value}});["nn","ne","nc"].forEach(x=>$(x).value="");leads()}
+const opt=(a,v)=>a.map(x=>`<option${x==v?" selected":""}>${x}</option>`).join("");
+async function leads(){const L=await api("api/leads"),c={};L.forEach(l=>c[l.status]=(c[l.status]||0)+1);
+ $("stats").innerHTML=`<span>Total ${L.length}</span>`+ST.filter(s=>c[s]).map(s=>`<span>${s} ${c[s]}</span>`).join("");
+ $("rows").innerHTML=L.map(l=>`<tr><td><b>${esc(l.name)}</b><br><small>${esc(l.type)} · ${esc(l.role)}</small><input placeholder="email" value="${esc(l.email)}" onchange="upd('${l.id}',{email:this.value})"></td><td>${esc(l.city)}</td><td><select onchange="upd('${l.id}',{interest:this.value})">${opt(INT,l.interest)}</select></td><td><select onchange="upd('${l.id}',{status:this.value});setTimeout(leads,200)">${opt(ST,l.status)}</select></td><td><input type="date" value="${esc(l.followUp)}" onchange="upd('${l.id}',{followUp:this.value})"></td><td><input value="${esc(l.notes)}" onchange="upd('${l.id}',{notes:this.value})"></td><td class="row"><button onclick="mail('${l.id}','${esc(l.email)}')">Email</button><button onclick="del('${l.id}')">Delete</button></td></tr>`).join("")}
+const upd=(id,b)=>api("api/leads/"+id,{method:"PATCH",body:b});
+async function del(id){await api("api/leads/"+id,{method:"DELETE"});leads()}
+async function mail(id,e){const m=await api(`api/leads/${id}/message`);await upd(id,{status:"Contacted"});location.href=`mailto:${e}?subject=${encodeURIComponent("Free intro session – Art of Living")}&body=${encodeURIComponent(m.message)}`;leads()}
+(async()=>{const cs=await api("api/cities");$("city").innerHTML=cs.map(c=>`<option>${c}</option>`).join("");
+ const t=new Date(),iso=d=>d.toISOString().slice(0,10);$("from").value=iso(t);$("to").value=iso(new Date(t.getTime()+365*864e5));
+ ["city","from","to"].forEach(x=>$(x).addEventListener("change",outreach));outreach()})();
+</script></body></html>

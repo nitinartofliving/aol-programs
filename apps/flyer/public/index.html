@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flyer Studio</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="mark" aria-hidden="true"></span><h1>Flyer Studio</h1></div>
+  <div class="top-right">
+    <span id="profilePill" class="pill">Loading</span>
+    <button class="btn ghost" id="historyBtn" type="button">Past flyers</button>
+    <button class="btn ghost" id="opBtn" type="button">Operator</button>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="rail" aria-label="Survey sections">
+    <ol>
+      <li><a href="#sA"><b>A</b>What is the flyer for?</a></li>
+      <li><a href="#sB"><b>B</b>What feel do they want?</a></li>
+      <li><a href="#sC"><b>C</b>Gurudev photo?</a></li>
+      <li><a href="#sD"><b>D</b>City photo?</a></li>
+      <li><a href="#sE"><b>E</b>Course dates and times</a></li>
+      <li><a href="#sL"><b>+</b>Where and format</a></li>
+      <li><a href="#sF"><b>F</b>Contact information</a></li>
+      <li><a href="#sG"><b>G</b>QR code?</a></li>
+    </ol>
+  </nav>
+
+  <main class="form" id="form">
+    <div id="demoBar" class="demobar hide">
+      <span>Demo profile is on. Every fact in a demo flyer is fictional.</span>
+      <button class="btn small" id="fixtureBtn" type="button">Load sample answers</button>
+    </div>
+    <div id="reviseBar" class="demobar hide"><span id="reviseText"></span><button class="btn small" id="reviseCancel" type="button">Start a new flyer instead</button></div>
+
+    <section id="sA" class="card" data-section="A">
+      <h2><b>A</b>What is the flyer for?</h2>
+      <label class="fld"><span>Course or event</span>
+        <textarea id="offer" rows="3" placeholder="Course name on the first line"></textarea>
+        <small>The first line becomes the title. Extra lines are used as the description.</small></label>
+      <label class="fld"><span>Approved description <em>(optional)</em></span>
+        <textarea id="approved" rows="3" placeholder="Paste approved wording from the programme page"></textarea>
+        <small>Only what you supply or the approved registry holds is printed. Nothing about the programme is invented.</small></label>
+    </section>
+
+    <section id="sB" class="card" data-section="B">
+      <h2><b>B</b>What feel do they want?</h2>
+      <div class="chips" id="moods">
+        <label class="chip"><input type="checkbox" value="Nature"><span>Nature</span></label>
+        <label class="chip"><input type="checkbox" value="Peace"><span>Peace</span></label>
+        <label class="chip"><input type="checkbox" value="Happy"><span>Happy</span></label>
+        <label class="chip"><input type="checkbox" value="Joy"><span>Joy</span></label>
+      </div>
+      <label class="fld inline"><span>Another word <em>(optional)</em></span><input id="moodOther" type="text" maxlength="30"></label>
+      <small>Picking more than one blends them into a single calm design. With none picked, the design is peaceful and natural.</small>
+    </section>
+
+    <section id="sC" class="card" data-section="C">
+      <h2><b>C</b>Gurudev photo?</h2>
+      <label class="switch"><input id="gurudev" type="checkbox"><i></i><span>Include an approved portrait of Gurudev</span></label>
+      <small>Uses only the approved originals in the asset package. If none is available you will be asked, and the switch is never turned off for you.</small>
+    </section>
+
+    <section id="sD" class="card" data-section="D">
+      <h2><b>D</b>City photo?</h2>
+      <label class="switch"><input id="cityOn" type="checkbox"><i></i><span>Include a photo of the city</span></label>
+      <div id="cityBox" class="hide">
+        <label class="fld"><span>Photo (JPEG, PNG or WebP)</span><input id="cityFile" type="file" accept="image/jpeg,image/png,image/webp"></label>
+        <div id="cityInfo" class="photo-info"></div>
+      </div>
+    </section>
+
+    <section id="sE" class="card" data-section="E">
+      <h2><b>E</b>Course dates and times</h2>
+      <div id="sessions"></div>
+      <button class="btn small" id="addSession" type="button">Add a date</button>
+      <label class="fld inline"><span>Time zone</span>
+        <select id="tz">
+          <option value="">Not needed for in-person events</option>
+          <option value="America/St_Johns">St. John's</option><option value="America/Halifax">Halifax</option><option value="America/Moncton">Moncton</option>
+          <option value="America/Toronto">Toronto</option><option value="America/Winnipeg">Winnipeg</option><option value="America/Regina">Regina</option>
+          <option value="America/Edmonton">Edmonton</option><option value="America/Vancouver">Vancouver</option>
+        </select></label>
+      <small>Each day keeps its own start time. An end time is optional and is never guessed.</small>
+    </section>
+
+    <section id="sL" class="card" data-section="L">
+      <h2><b>+</b>Where and format</h2>
+      <div class="seg" id="mode" role="radiogroup" aria-label="Delivery mode">
+        <label><input type="radio" name="mode" value="in_person" checked><span>In person</span></label>
+        <label><input type="radio" name="mode" value="online"><span>Online</span></label>
+        <label><input type="radio" name="mode" value="hybrid"><span>Both</span></label>
+      </div>
+      <div class="two">
+        <label class="fld"><span>City</span><input id="city" type="text"></label>
+        <label class="fld"><span>Venue</span><input id="venue" type="text"></label>
+      </div>
+      <label class="fld"><span>Street address</span><input id="address" type="text"></label>
+      <label class="check"><input id="onpage" type="checkbox"><span>The venue is listed on the course page, so leave it off the flyer</span></label>
+      <label class="fld inline"><span>Format</span><select id="format"></select></label>
+    </section>
+
+    <section id="sF" class="card" data-section="F">
+      <h2><b>F</b>Contact information</h2>
+      <div id="contacts"></div>
+      <button class="btn small" id="addContact" type="button">Add a contact</button>
+      <small>Names, numbers and emails are printed exactly as you type them.</small>
+    </section>
+
+    <section id="sG" class="card" data-section="G">
+      <h2><b>G</b>QR code?</h2>
+      <label class="switch"><input id="qrOn" type="checkbox"><i></i><span>Add a QR code to the course link</span></label>
+      <label class="fld"><span>Course link</span><input id="url" type="url" placeholder="https://"></label>
+      <label class="fld inline"><span>Where the link goes</span>
+        <select id="dtype"><option value="">Not sure</option><option value="registration">A registration page</option><option value="information">An information page</option><option value="enquiry">An enquiry route</option></select></label>
+      <small>The link is used exactly as entered. It is never shortened and no tracking is added.</small>
+    </section>
+
+    <section class="card quiet">
+      <label class="fld"><span>Notes for the team <em>(information only)</em></span><textarea id="notes" rows="2"></textarea>
+        <small>Notes are recorded but never printed, and they cannot change production rules.</small></label>
+    </section>
+
+    <div class="actions"><button class="btn primary big" id="makeBtn" type="button">Make my flyer</button><span id="busy" class="busy hide" role="status"></span></div>
+  </main>
+
+  <aside class="proof" aria-label="Proof">
+    <ol class="gates" id="gates">
+      <li data-g="brief"><i></i>Brief</li><li data-g="gateA"><i></i>Gate A</li><li data-g="render"><i></i>Render</li><li data-g="checks"><i></i>Checks</li><li data-g="review"><i></i>Review</li><li data-g="gateB"><i></i>Gate B</li>
+    </ol>
+    <div class="sheet" id="sheet">
+      <div class="sheet-empty" id="sheetEmpty"><p>Your proof appears here.</p><p>Fill in the survey, then press <b>Make my flyer</b>.</p></div>
+      <canvas id="cv" class="hide"></canvas><img id="prevImg" class="hide" alt="Flyer preview">
+    </div>
+    <div class="viewbar hide" id="viewbar"><button class="btn small on" data-view="full" type="button">Full size</button><button class="btn small" data-view="phone" type="button">Phone width</button></div>
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+    <div id="questions"></div>
+    <div id="result"></div>
+    <div id="reviewBox"></div>
+    <details id="evidence" class="evidence hide"><summary>Checks and evidence</summary><div id="evBody"></div></details>
+    <div id="issues"></div>
+  </aside>
+</div>
+
+<dialog id="opDlg" class="dlg">
+  <form method="dialog"><h2>Operator</h2><p class="muted">Host settings. They are kept separate from the survey and cannot be changed by anything typed into it.</p></form>
+  <div id="opBody"></div>
+  <div class="dlg-foot"><button class="btn" id="opClose" type="button">Close</button></div>
+</dialog>
+<dialog id="histDlg" class="dlg"><h2>Past flyers</h2><div id="histBody"></div><div class="dlg-foot"><button class="btn" id="histClose" type="button">Close</button></div></dialog>
+
+<script src="layout.js"></script>
+<script src="render.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

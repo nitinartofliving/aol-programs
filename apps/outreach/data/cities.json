@@ -1,0 +1,57 @@
+{
+"Toronto":{"province":"ON",
+ "universities":[
+  {"name":"University of Toronto","site":"https://www.utoronto.ca","contact":{"name":"Priya Nair (mock)","role":"Health & Wellness Programs Coordinator","email":"wellness@example.com"}},
+  {"name":"York University","site":"https://www.yorku.ca","contact":{"name":"Daniel Okafor (mock)","role":"Student Clubs Advisor","email":"clubs@example.com"}}],
+ "wellness":[
+  {"name":"Lotus Flow Yoga (mock)","kind":"Yoga studio","address":"Queen St W","contact":{"name":"Meera Shah (mock)","role":"Studio Owner","email":"meera@example.com"}},
+  {"name":"Still Point Wellness Club (mock)","kind":"Wellness club","address":"Yonge St","contact":{"name":"Chris Lau (mock)","role":"Community Manager","email":"chris@example.com"}}],
+ "events":[
+  {"name":"Toronto Wellness Expo (mock)","date":"2026-12-05","type":"Expo","why":"Booth to collect sign-ups from people seeking stress relief."},
+  {"name":"U of T Exam De-stress Week (mock)","date":"2026-12-08","type":"Campus","why":"Free breathing sessions for students facing exams."},
+  {"name":"Winter Yoga & Mindfulness Fest (mock)","date":"2027-01-23","type":"Yoga","why":"Audience already interested in learning yoga and meditation."},
+  {"name":"Mental Health Awareness Week (mock)","date":"2027-05-03","type":"Awareness","why":"Partner on anxiety and depression workshops."}],
+ "influencers":[
+  {"handle":"@torontoyogi (mock)","followers":18000,"niche":"Yoga","contact":"dm"},
+  {"handle":"@calmcityto (mock)","followers":42000,"niche":"Mental health","contact":"dm"}]},
+"Vancouver":{"province":"BC",
+ "universities":[
+  {"name":"University of British Columbia","site":"https://www.ubc.ca","contact":{"name":"Hannah Wu (mock)","role":"Wellbeing Programs Lead","email":"wellbeing@example.com"}},
+  {"name":"Simon Fraser University","site":"https://www.sfu.ca","contact":{"name":"Arjun Mehta (mock)","role":"Student Life Coordinator","email":"studentlife@example.com"}}],
+ "wellness":[
+  {"name":"Cedar Breath Studio (mock)","kind":"Yoga studio","address":"Main St","contact":{"name":"Sofia Reid (mock)","role":"Founder","email":"sofia@example.com"}},
+  {"name":"Pacific Mind Club (mock)","kind":"Meditation centre","address":"Kitsilano","contact":{"name":"Tom Barrett (mock)","role":"Events Manager","email":"events@example.com"}}],
+ "events":[
+  {"name":"Vancouver Mindfulness Weekend (mock)","date":"2026-12-12","type":"Meditation","why":"Meditation seekers, ideal for a free intro talk."},
+  {"name":"UBC Winter Club Fair (mock)","date":"2027-01-12","type":"Campus","why":"New-term student intake."},
+  {"name":"Seaside Yoga Day (mock)","date":"2027-06-19","type":"Yoga","why":"Large outdoor yoga crowd near International Day of Yoga."}],
+ "influencers":[
+  {"handle":"@vanyogalife (mock)","followers":25000,"niche":"Yoga","contact":"dm"},
+  {"handle":"@breathewithava (mock)","followers":9000,"niche":"Breathwork","contact":"dm"}]},
+"Montreal":{"province":"QC",
+ "universities":[
+  {"name":"McGill University","site":"https://www.mcgill.ca","contact":{"name":"Lucie Tremblay (mock)","role":"Wellness Hub Coordinator","email":"hub@example.com"}},
+  {"name":"Concordia University","site":"https://www.concordia.ca","contact":{"name":"Karim Haddad (mock)","role":"Student Engagement Officer","email":"engage@example.com"}}],
+ "wellness":[
+  {"name":"Studio Souffle (mock)","kind":"Yoga studio","address":"Plateau Mont-Royal","contact":{"name":"Camille Roy (mock)","role":"Owner","email":"camille@example.com"}},
+  {"name":"Zen Mtl Wellness (mock)","kind":"Wellness club","address":"Old Montreal","contact":{"name":"Marc Gagnon (mock)","role":"Programs Manager","email":"programs@example.com"}}],
+ "events":[
+  {"name":"Montreal Bien-etre Salon (mock)","date":"2027-02-06","type":"Expo","why":"Wellness-minded visitors, bilingual outreach."},
+  {"name":"McGill Stress-Less Week (mock)","date":"2027-04-05","type":"Campus","why":"Pre-exam relaxation sessions."},
+  {"name":"Yoga in the Park Mont-Royal (mock)","date":"2027-06-21","type":"Yoga","why":"International Day of Yoga gathering."}],
+ "influencers":[
+  {"handle":"@mtlyoga (mock)","followers":31000,"niche":"Yoga","contact":"dm"},
+  {"handle":"@sante_mentale_mtl (mock)","followers":15000,"niche":"Mental health","contact":"dm"}]},
+"Moncton":{"province":"NB",
+ "universities":[
+  {"name":"Universite de Moncton","site":"https://www.umoncton.ca","contact":{"name":"Julie Leblanc (mock)","role":"Student Services Coordinator","email":"services@example.com"}},
+  {"name":"Crandall University","site":"https://www.crandallu.ca","contact":{"name":"Ethan Brooks (mock)","role":"Campus Life Director","email":"campuslife@example.com"}}],
+ "wellness":[
+  {"name":"Riverview Yoga Co. (mock)","kind":"Yoga studio","address":"Main St","contact":{"name":"Nadia Cormier (mock)","role":"Owner","email":"nadia@example.com"}},
+  {"name":"Maritime Wellness Club (mock)","kind":"Wellness club","address":"Mountain Rd","contact":{"name":"Paul Arsenault (mock)","role":"Manager","email":"paul@example.com"}}],
+ "events":[
+  {"name":"Moncton Winter Wellness Fair (mock)","date":"2027-02-13","type":"Expo","why":"Local community sign-ups for free intro sessions."},
+  {"name":"UdeM Student Wellness Day (mock)","date":"2026-12-02","type":"Campus","why":"Direct access to students seeking stress relief."}],
+ "influencers":[
+  {"handle":"@monctonmoves (mock)","followers":6500,"niche":"Fitness & yoga","contact":"dm"}]}
+}

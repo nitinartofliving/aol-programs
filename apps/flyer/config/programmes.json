@@ -1,0 +1,14 @@
+{
+  "_note": "Approved programme registry. Add entries only from approved sources. Do not invent entries.",
+  "_example_entry": {
+    "id": "example-id",
+    "display_name": "Approved Display Name",
+    "aliases": ["short name", "another alias"],
+    "description": "Approved factual description (15 to 30 words).",
+    "allowed_benefit_language": ["Approved short benefit phrase"],
+    "display_conditions": null,
+    "source": "Where this wording came from",
+    "review_date": "YYYY-MM-DD"
+  },
+  "programmes": []
+}

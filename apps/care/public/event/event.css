@@ -1,0 +1,6 @@
+.public { max-width: 560px; margin: 0 auto; padding: 24px 16px 48px; display: flex; flex-direction: column; gap: 16px; }
+.org { font-size: 14px; font-weight: 700; color: var(--accent); letter-spacing: .02em; }
+.when { font-size: 18px; font-weight: 600; }
+.public .btn.primary { min-height: 48px; font-size: 17px; }
+.hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+#event .badge { align-self: flex-start; }

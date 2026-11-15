@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AOL Programs</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="shell.css">
+  <script src="shell.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#home" data-tab="home">
+      <span class="mark" aria-hidden="true">✦</span>
+      <span>AOL Programs</span>
+    </a>
+    <nav class="tabs" role="tablist" aria-label="Tools">
+      <a role="tab" href="#home" data-tab="home">Home</a>
+      <a role="tab" href="#people" data-tab="people">People</a>
+      <a role="tab" href="#outreach" data-tab="outreach">Outreach Finder</a>
+      <a role="tab" href="#flyer" data-tab="flyer">Flyer Studio</a>
+      <a role="tab" href="#survey" data-tab="survey">Follow-up Survey</a>
+      <a role="tab" href="#ask" data-tab="ask">SevaAssist</a>
+      <a role="tab" href="#staff" data-tab="staff">Staff Dashboard</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="panel-home" class="panel home" role="tabpanel" aria-label="Home">
+      <div class="hero">
+        <h1>AOL Programs</h1>
+        <p>Choose a tool to get started.</p>
+      </div>
+      <div class="cards">
+        <article class="card">
+          <div class="icon" aria-hidden="true">🤝</div>
+          <h2>People &amp; Journeys</h2>
+          <p>Everyone in your circle and where they are on their journey. Today's follow-ups, WhatsApp, SMS and call buttons, and events with sign-up and check-in QR codes.</p>
+          <a class="btn primary" href="#people">Open People</a>
+        </article>
+        <article class="card">
+          <div class="icon" aria-hidden="true">🧭</div>
+          <h2>Outreach Finder</h2>
+          <p>Pick a Canadian city and dates to find events, universities, wellness clubs and contacts. Save them as leads, track follow-ups and export to CSV.</p>
+          <a class="btn primary" href="#outreach">Open Outreach Finder</a>
+        </article>
+        <article class="card">
+          <div class="icon" aria-hidden="true">🖼️</div>
+          <h2>Flyer Studio</h2>
+          <p>Answer a short brief and get a checked, print-ready course flyer with a working QR code. A person reviews it before it can be downloaded.</p>
+          <a class="btn primary" href="#flyer">Open Flyer Studio</a>
+        </article>
+        <article class="card">
+          <div class="icon" aria-hidden="true">📝</div>
+          <h2>Follow-up Survey</h2>
+          <p>A one-minute phone survey for program graduates, with a suggested next step. Staff see trends and suggestions in the dashboard.</p>
+          <div class="row">
+            <a class="btn primary" href="#survey">Open survey</a>
+            <a class="btn" href="#staff">Staff dashboard</a>
+          </div>
+        </article>
+        <article class="card">
+          <div class="icon" aria-hidden="true">💡</div>
+          <h2>SevaAssist</h2>
+          <p>Quick, approved answers for volunteers and teachers, each with its source. If there's no approved answer, it says so instead of guessing.</p>
+          <a class="btn primary" href="#ask">Ask SevaAssist</a>
+        </article>
+      </div>
+    </section>
+    <section id="panel-people" class="panel frame" role="tabpanel" aria-label="People" data-src="/care/" hidden></section>
+    <section id="panel-ask" class="panel frame" role="tabpanel" aria-label="SevaAssist" data-src="/ask/" hidden></section>
+    <section id="panel-outreach"class="panel frame" role="tabpanel" aria-label="Outreach Finder" data-src="/outreach/" hidden></section>
+    <section id="panel-flyer" class="panel frame" role="tabpanel" aria-label="Flyer Studio" data-src="/flyer/" hidden></section>
+    <section id="panel-survey" class="panel frame" role="tabpanel" aria-label="Follow-up Survey" data-src="/survey/" hidden>
+      <div class="frame-bar"><span>Share this link with participants:</span> <code id="surveyLink"></code> <a href="/survey/" target="_blank" rel="noopener">Open in new tab ↗</a></div>
+    </section>
+    <section id="panel-staff" class="panel frame" role="tabpanel" aria-label="Staff Dashboard" data-src="/staff/" hidden></section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": "flyer-studio",
+  "version": "1.2.0",
+  "description": "Art of Living Flyer Studio: front end and host application for the Creative Engine v1.2 prompt",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "test": "node test/engine.test.js" },
+  "engines": { "node": ">=18" }
+}

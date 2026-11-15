@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: aol-programs
+    runtime: node
+    plan: free
+    buildCommand: "echo no build step"
+    startCommand: node server.mjs
+    healthCheckPath: /survey/api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: HOST
+        value: 0.0.0.0
+      - key: AOL_MANAGER_TOKEN
+        sync: false
+      - key: AOL_VOLUNTEER_TOKEN
+        sync: false
+      - key: ADMIN_TOKEN
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false

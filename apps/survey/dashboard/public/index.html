@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Staff dashboard · AOL Programs follow-ups</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="dashboard.css">
+  <script type="module" src="dashboard.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-title">AOL Programs follow-ups</span>
+      <span class="brand-sub">Staff dashboard</span>
+    </div>
+    <div class="topbar-actions" id="session" hidden>
+      <span class="role" id="role"></span>
+      <button type="button" class="btn btn-ghost" id="refresh">Refresh</button>
+      <button type="button" class="btn btn-ghost" id="sign-out">Sign out</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- Sign in -->
+    <section id="signin" class="card signin">
+      <h1>Sign in</h1>
+      <p class="muted">Paste your staff token (AOL_MANAGER_TOKEN or AOL_REPORT_TOKEN). It stays in this browser tab only and is cleared when you close it.</p>
+      <form id="signin-form" autocomplete="off">
+        <label for="token">Staff token</label>
+        <input id="token" name="token" type="password" spellcheck="false" autocapitalize="off" required>
+        <p id="signin-error" class="error" role="alert" hidden></p>
+        <button type="submit" class="btn btn-primary" id="signin-btn">Sign in</button>
+      </form>
+    </section>
+
+    <div id="banner" class="banner" role="alert" hidden></div>
+    <p id="loading" class="loading" role="status" hidden>Loading…</p>
+
+    <div id="app" hidden>
+      <!-- Headline numbers -->
+      <section class="tiles" id="tiles" aria-label="Response counts"></section>
+
+      <!-- Filters -->
+      <section class="filters" aria-label="Filters">
+        <div class="seg" role="group" aria-label="Time window" id="window-seg">
+          <button type="button" data-window="current" aria-pressed="true">Last 30 days</button>
+          <button type="button" data-window="prior" aria-pressed="false">Previous 30 days</button>
+        </div>
+        <div class="seg" role="group" aria-label="Group" id="cohort-seg">
+          <button type="button" data-cohort="all" aria-pressed="true">Everyone</button>
+          <button type="button" data-cohort="noRecent" aria-pressed="false">No follow-up in 30 days</button>
+          <button type="button" data-cohort="recent" aria-pressed="false">Joined in 30 days</button>
+        </div>
+        <p class="muted window-dates" id="window-dates"></p>
+      </section>
+
+      <!-- Volunteer suggestions -->
+      <section class="card" aria-labelledby="actions-h">
+        <h2 id="actions-h">Suggestions for volunteers</h2>
+        <p class="muted">From the last 30 days. Each needs at least 5 people in its group and 3 matching answers. Pick one change to pilot, then compare real attendance before and after.</p>
+        <div id="actions" class="actions"></div>
+      </section>
+
+      <!-- Distributions -->
+      <section aria-labelledby="trends-h">
+        <h2 id="trends-h" class="section-h">What people told us</h2>
+        <div id="charts" class="charts"></div>
+      </section>
+
+      <!-- Individual responses (manager only) -->
+      <section class="card" id="responses-card" aria-labelledby="responses-h" hidden>
+        <div class="card-head">
+          <h2 id="responses-h">Individual responses</h2>
+          <div class="card-tools">
+            <label class="sr-only" for="search">Search names and comments</label>
+            <input id="search" type="search" placeholder="Search names and comments">
+            <label class="check"><input type="checkbox" id="named-only"> Named only</label>
+            <button type="button" class="btn btn-ghost" id="export">Export CSV</button>
+          </div>
+        </div>
+        <p class="muted" id="responses-note"></p>
+        <div class="table-scroll">
+          <table class="responses">
+            <thead>
+              <tr>
+                <th scope="col">Received</th>
+                <th scope="col">Name</th>
+                <th scope="col">Follow-ups (30 days)</th>
+                <th scope="col">Harder to join</th>
+                <th scope="col">Would most like</th>
+                <th scope="col">Day / time</th>
+                <th scope="col">Format</th>
+                <th scope="col">Comment</th>
+                <th scope="col">Next step given</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-ghost more" id="more" hidden>Load more</button>
+      </section>
+
+      <p class="muted footnote" id="footnote"></p>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,70 @@
+.subnav {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: stretch; justify-content: space-between; gap: 12px;
+  padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.subtabs { display: flex; gap: 4px; overflow-x: auto; }
+.subtabs a {
+  display: flex; align-items: center; min-height: 48px; padding: 0 12px;
+  color: var(--muted); font-weight: 600; text-decoration: none; border-bottom: 3px solid transparent; white-space: nowrap;
+}
+.subtabs a.active { color: var(--accent); border-bottom-color: var(--accent); }
+.who { display: flex; align-items: center; gap: 8px; font-size: 14px; white-space: nowrap; }
+@media (max-width: 520px) { #whoName { display: none; } }
+
+.page-head { margin-bottom: 20px; }
+.page-head p { margin-top: 4px; }
+
+/* Today queue */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.card.overdue { border-left: 4px solid var(--danger); }
+.card.today { border-left: 4px solid var(--accent); }
+.card.new, .card.upcoming { border-left: 4px solid var(--ok); }
+.why { font-weight: 600; }
+.card.overdue .why { color: var(--danger); }
+.card.today .why { color: var(--accent); }
+.card.new .why, .card.upcoming .why { color: var(--ok); }
+.facts { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; color: var(--muted); }
+.facts strong { color: var(--ink); font-weight: 600; }
+.quote { font-style: italic; color: var(--ink); border-left: 3px solid var(--line); padding-left: 10px; }
+.outcomes { display: flex; flex-wrap: wrap; gap: 6px; }
+.log { display: grid; grid-template-columns: minmax(0, 1fr) 170px; gap: 8px; }
+@media (max-width: 560px) { .log { grid-template-columns: 1fr; } }
+
+/* People list */
+.people-list { display: flex; flex-direction: column; }
+.person-row {
+  display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 12px; align-items: center;
+  padding: 12px 4px; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none;
+}
+.person-row:hover { background: var(--sunken); }
+.person-row .name { font-weight: 700; }
+@media (max-width: 680px) {
+  .person-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .person-row .hide-sm { display: none; }
+}
+
+/* Journey */
+.path { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.node { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+.node.done { background: var(--ok-soft); border-color: transparent; color: var(--ok); font-weight: 600; }
+.node.next { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.arrow { color: var(--line); }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.steps li { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; padding: 10px 12px; background: var(--sunken); border-radius: 10px; }
+
+.history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.history li { padding: 10px 12px; border-left: 3px solid var(--line); }
+
+/* Events */
+.event-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.event-card { display: flex; flex-direction: column; gap: 6px; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); color: inherit; text-decoration: none; }
+.event-card:hover { border-color: var(--accent); }
+.qr-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.qr-box { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--sunken); text-align: center; }
+.qr-box img { width: 200px; height: auto; background: #fff; border-radius: 8px; }
+.qr-box code { font-size: 13px; word-break: break-all; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+th { font-size: 13px; color: var(--muted); font-weight: 700; }
+.table-scroll { overflow-x: auto; }

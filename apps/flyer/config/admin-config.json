@@ -1,0 +1,35 @@
+{
+  "prompt_version": "1.2",
+  "brand_package_version": "local-1",
+  "execution_profile": "demo",
+  "response_mode": "api",
+  "render_backend": "layered",
+  "language": "en",
+  "regional_spelling": "CA",
+  "default_format": "3:4",
+  "allowed_formats": [
+    "3:4",
+    "4:5"
+  ],
+  "logo_policy": "include_required",
+  "approved_fonts": {
+    "title": null,
+    "body": null
+  },
+  "exact_font_required": false,
+  "palette": {
+    "background": "#F7F5EF",
+    "text": "#243D32",
+    "accent_sage": "#A8B5A1",
+    "accent_stone": "#D8D2C7"
+  },
+  "safe_margin_px": 90,
+  "planning_rounds": 3,
+  "render_attempts": 2,
+  "output_mode": "generate",
+  "live_link_check": "best_effort",
+  "demo_omissions_authorised": [
+    "logo",
+    "gurudev"
+  ]
+}

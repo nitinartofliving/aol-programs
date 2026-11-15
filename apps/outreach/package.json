@@ -1,0 +1,8 @@
+{
+  "name": "aol-outreach",
+  "version": "1.0.0",
+  "description": "Hackathon: city outreach finder + lead manager for Art of Living (Canada)",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}

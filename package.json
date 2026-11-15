@@ -1,0 +1,14 @@
+{
+  "name": "aol-programs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AOL Programs: People & Journeys, Outreach Finder, Flyer Studio, Follow-up Survey and SevaAssist in one web app",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "test": "cd apps/survey/backend && node --test && cd ../frontend && node --test && cd ../dashboard && node --test && cd ../../care && node --test && cd ../.. && node apps/flyer/test/engine.test.js"
+  }
+}

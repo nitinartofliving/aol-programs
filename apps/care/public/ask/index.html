@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SevaAssist · AOL Programs</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="shared/ui.css">
+  <link rel="stylesheet" href="ask.css">
+  <script type="module" src="ask.js"></script>
+</head>
+<body>
+  <section id="signin" class="wrap" hidden>
+    <div class="panel signin">
+      <form id="signinForm" class="stack" novalidate>
+        <h1>SevaAssist</h1>
+        <p class="muted">Sign in with your staff token (volunteer or manager). It stays in this browser tab only.</p>
+        <label>Your name<input name="name" autocomplete="name" maxlength="40" required></label>
+        <label>Staff token<input name="token" type="password" autocomplete="off" required></label>
+        <p id="signinError" class="error" role="alert"></p>
+        <button class="btn primary" type="submit">Sign in</button>
+      </form>
+    </div>
+  </section>
+
+  <main id="app" class="wrap ask" hidden>
+    <div class="spread">
+      <div>
+        <h1>SevaAssist</h1>
+        <p class="muted">Approved answers for volunteers and teachers, with their source.</p>
+      </div>
+      <div class="row small"><span id="whoName"></span><span id="whoRole" class="badge"></span><button id="signOut" class="linkbtn" type="button">Sign out</button></div>
+    </div>
+
+    <section class="panel stack">
+      <form id="askForm" class="ask-row" novalidate>
+        <label class="grow">Your question<input id="question" maxlength="200" placeholder="e.g. How can I become a volunteer?" required></label>
+        <button class="btn primary" type="submit">Ask</button>
+      </form>
+      <p id="askError" class="error" role="alert"></p>
+      <div id="answer" class="answer" hidden aria-live="polite">
+        <p id="answerText"></p>
+        <p class="small"><strong>Source:</strong> <span id="answerSource"></span></p>
+      </div>
+    </section>
+
+    <section class="panel stack">
+      <div class="spread">
+        <h2>Approved answers (<span id="kbCount">0</span>)</h2>
+        <button id="addEntry" class="btn" type="button" hidden>+ Add an answer</button>
+      </div>
+      <p class="notice">The four starting answers are fictional examples from the SevaAssist prototype. Replace them with approved content before real use.</p>
+      <p id="kbHint" class="muted small">Only managers can add, edit or remove answers.</p>
+      <div id="kb" class="kb"></div>
+    </section>
+  </main>
+
+  <dialog id="dialog"></dialog>
+</body>
+</html>

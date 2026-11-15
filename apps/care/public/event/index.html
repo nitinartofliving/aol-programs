@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Register · Art of Living</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="/care/shared/ui.css">
+  <link rel="stylesheet" href="/e/assets/event.css">
+  <script type="module" src="/e/assets/event.js"></script>
+</head>
+<body>
+  <main class="public">
+    <p class="org">Art of Living · AOL Programs</p>
+    <div id="loading" class="panel"><p class="muted">Loading…</p></div>
+
+    <article id="event" class="panel stack" hidden>
+      <span id="program" class="badge accent"></span>
+      <h1 id="title"></h1>
+      <p id="when" class="when"></p>
+      <p id="place" class="muted"></p>
+      <p id="teacher" class="muted"></p>
+      <p id="description"></p>
+    </article>
+
+    <section id="formPanel" class="panel" hidden>
+      <form id="form" class="stack" novalidate>
+        <h2 id="formTitle">Save your spot</h2>
+        <label>Your name<input name="fullName" autocomplete="name" maxlength="80" required></label>
+        <label>Phone number<input name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="30" required></label>
+        <label id="emailField">Email <span class="optional">(optional)</span><input name="email" type="email" autocomplete="email" maxlength="120"></label>
+        <label id="goalField">What brings you here? <span class="optional">(optional)</span><input name="goal" maxlength="200"></label>
+        <label class="check"><input type="checkbox" name="consent"><span>Yes, a volunteer may contact me by call, WhatsApp or text about this and future programs. You can ask us to stop at any time.</span></label>
+        <div class="hp" aria-hidden="true"><label>Leave this empty<input name="website" tabindex="-1" autocomplete="off"></label></div>
+        <p id="error" class="error" role="alert"></p>
+        <button id="submit" class="btn primary" type="submit">Register</button>
+        <p class="muted small">We only use your details to help you with Art of Living programs.</p>
+      </form>
+    </section>
+
+    <section id="done" class="panel stack" hidden tabindex="-1">
+      <h2 id="doneTitle"></h2>
+      <p id="doneText"></p>
+    </section>
+
+    <section id="closed" class="panel stack" hidden>
+      <h2>Registration is closed</h2>
+      <p class="muted">Registration for this event has closed. Please contact the organizers if you have questions.</p>
+    </section>
+
+    <section id="missing" class="panel stack" hidden>
+      <h2>This event link is not valid</h2>
+      <p class="muted">The event may have been removed. Please check the link or ask the organizers.</p>
+    </section>
+  </main>
+</body>
+</html>

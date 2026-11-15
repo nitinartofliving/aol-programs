@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>People &amp; Journeys · AOL Programs</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="shared/ui.css">
+  <link rel="stylesheet" href="care.css">
+  <script type="module" src="care.js"></script>
+</head>
+<body>
+  <section id="signin" class="wrap" hidden>
+    <div class="panel signin">
+      <form id="signinForm" class="stack" novalidate>
+        <h1>People &amp; Journeys</h1>
+        <p class="muted">Sign in with your staff token (volunteer or manager). It stays in this browser tab only and is cleared when you close it.</p>
+        <label>Your name<input name="name" autocomplete="name" maxlength="40" required></label>
+        <label>Staff token<input name="token" type="password" autocomplete="off" required></label>
+        <p id="signinError" class="error" role="alert"></p>
+        <button class="btn primary" type="submit">Sign in</button>
+      </form>
+    </div>
+  </section>
+
+  <div id="app" hidden>
+    <header class="subnav">
+      <nav class="subtabs" aria-label="People sections">
+        <a href="#today" data-view="today">Today</a>
+        <a href="#people" data-view="people">People</a>
+        <a href="#events" data-view="events">Events</a>
+      </nav>
+      <div class="who">
+        <span id="whoName"></span>
+        <span id="whoRole" class="badge"></span>
+        <button id="signOut" class="linkbtn small" type="button">Sign out</button>
+      </div>
+    </header>
+    <main id="view" class="wrap"></main>
+  </div>
+
+  <dialog id="dialog"></dialog>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "_note": "Recorded demo fixture. Every fact below is fictional and was assumed for a design sample.",
+  "offering": { "raw_text": "Calm Breathing Workshop", "approved_description": "A hands-on introduction to simple breathing practices you can bring into everyday life." },
+  "mood": { "selected": ["Nature", "Peace"] },
+  "imagery": { "include_gurudev": false, "include_city_photo": false },
+  "schedule": { "timezone": "America/Halifax", "sessions": [
+    { "date": "2026-12-04", "start_time": "19:00", "end_time": "21:00" },
+    { "date": "2026-12-05", "start_time": "10:00", "end_time": null },
+    { "date": "2026-12-06", "start_time": "10:00", "end_time": "12:30" } ] },
+  "location": { "delivery_mode": "in_person", "city": "Halifax", "venue": "Example Community Hall", "address": "123 Sample Street" },
+  "contacts": [ { "name": "Sam Example", "phone": "902 555 0142", "email": "sam@example.org" } ],
+  "action": { "include_qr": true, "destination_url": "https://example.org/calm-breathing-workshop", "destination_type": "registration" },
+  "format": "3:4"
+}
